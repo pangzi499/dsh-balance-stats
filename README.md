@@ -116,10 +116,10 @@ Authorization header 或包含订单明细的原始 JSON。
 
 ### GitHub（推荐）
 
-安装固定版本：
+安装 GitHub 默认分支的最新版本：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git#v0.1.0
+npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git
 npx @deepseek-ai/dsh web
 ```
 
@@ -158,10 +158,10 @@ Command + Shift + R
 
 ## 更新
 
-安装新的 Git tag：
+更新到 GitHub 默认分支的最新版本：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git#v0.1.1
+npx @deepseek-ai/dsh plugin --profile web update dsh-balance-stats
 ```
 
 本地目录或 tarball 安装：使用新版本路径再执行一次 `add`，然后重启 `dsh web`。
