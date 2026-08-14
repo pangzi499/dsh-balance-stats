@@ -10,6 +10,20 @@
 点击整行可打开详情卡，查看余额构成、Harness 本地用量估算、按模型花费、Token
 用量及历史账单汇总。
 
+## 一句话安装
+
+确保 Node.js `>=22.19.0` 且 `pnpm --version` 可正常执行，然后运行：
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git
+```
+
+安装后启动或重启 Harness Web，并对浏览器执行一次强制刷新：
+
+```sh
+npx @deepseek-ai/dsh web
+```
+
 ## 界面预览
 
 ![余额、本次会话与累计消耗主栏](images/dsh-balance-stats-overview.png)
