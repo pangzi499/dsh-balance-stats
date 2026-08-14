@@ -1,0 +1,63 @@
+{
+  "name": "dsh-balance-stats",
+  "version": "0.1.0",
+  "description": "Community balance and spend statistics plugin for DeepSeek Harness Web, with session usage and privacy-preserving invoice summaries.",
+  "author": "Stephen <37542033+pangzi499@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pangzi499/dsh-balance-stats.git"
+  },
+  "homepage": "https://github.com/pangzi499/dsh-balance-stats#readme",
+  "bugs": {
+    "url": "https://github.com/pangzi499/dsh-balance-stats/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "balance",
+    "usage",
+    "cost-tracking"
+  ],
+  "type": "module",
+  "main": "src/index.js",
+  "files": [
+    "client/",
+    "src/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./client/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
+}
