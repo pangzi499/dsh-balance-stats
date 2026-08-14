@@ -143,7 +143,7 @@ npx @deepseek-ai/dsh web
 
 Repository: <https://github.com/pangzi499/dsh-balance-stats>
 
-You can also download `dsh-balance-stats-0.1.0.tgz` from the GitHub Release and install it as a tarball.
+You can also download `dsh-balance-stats-0.1.1.tgz` from the GitHub Release and install it as a tarball.
 
 ### Local directory
 
@@ -164,7 +164,7 @@ npm pack
 Install:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.0.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.1.tgz
 npx @deepseek-ai/dsh web
 ```
 
