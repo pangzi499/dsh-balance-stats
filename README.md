@@ -16,9 +16,32 @@
 
 - 已验证 DeepSeek Harness：`0.1.0-rc.6`
 - Node.js：`>=22.19.0`
+- pnpm：需要在 `PATH` 中可用（Harness 使用 pnpm 管理 profile 插件）
 - 已验证运行环境：OrbStack Ubuntu、Node.js `24.19.0`
 
 这是 DeepSeek Harness 社区插件，不是 `@deepseek-ai` 官方插件。
+
+安装插件前，先检查 pnpm：
+
+```sh
+pnpm --version
+command -v pnpm
+```
+
+如果提示 `pnpm: command not found` 或没有输出，可通过 Corepack 安装：
+
+```sh
+corepack enable
+corepack prepare pnpm@10 --activate
+pnpm --version
+```
+
+如果当前 Node.js 环境没有 Corepack，可改用 npm：
+
+```sh
+npm install --global pnpm@10
+pnpm --version
+```
 
 ## 功能
 
