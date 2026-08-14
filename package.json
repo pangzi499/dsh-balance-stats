@@ -24,6 +24,7 @@
   "main": "src/index.js",
   "files": [
     "client/",
+    "images/",
     "src/",
     "cordis.patch.yml",
     "README.md",

@@ -8,4 +8,5 @@ test('client plugin activates immediately when Harness Web starts', async () => 
   assert.equal(manifest.dsh.client.platform, 'web')
   assert.equal(manifest.dsh.client.immediately, true)
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-conversation'))
+  assert.ok(manifest.files.includes('images/'))
 })

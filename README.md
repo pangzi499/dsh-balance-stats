@@ -10,6 +10,12 @@
 点击整行可打开详情卡，查看余额构成、Harness 本地用量估算、按模型花费、Token
 用量及历史账单汇总。
 
+## 界面预览
+
+![余额、本次会话与累计消耗主栏](images/dsh-balance-stats-overview.png)
+
+![余额与用量统计详情卡](images/dsh-balance-stats-details.png)
+
 > DeepSeek Harness 尚处于开发者预览阶段，插件所使用的槽位和客户端接口可能随上游版本变化。
 
 ## 兼容性
