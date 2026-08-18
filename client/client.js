@@ -128,17 +128,23 @@ window.__ModuleLoader__.load({
 		let timer = null;
 		let pollMs = DEFAULT_POLL_MS;
 		let inflight = null;
+		let inflightForce = false;
 		let started = false;
 
 		function notify() {
 			for (const fn of [...listeners]) fn();
 		}
 
-		async function refresh() {
-			if (inflight !== null) return inflight;
+		async function refresh(force) {
+			if (inflight !== null) {
+				// 轮询请求在途时, 手动刷新(force)等它结束后再强制拉取, 避免点击被吞掉。
+				if (force === true && !inflightForce) return inflight.then(() => refresh(true));
+				return inflight;
+			}
+			inflightForce = force === true;
 			inflight = (async () => {
 				try {
-					const res = await fetch("/balance-stats", {
+					const res = await fetch("/balance-stats" + (inflightForce ? "?force=1" : ""), {
 						cache: "no-store",
 						headers: { accept: "application/json" }
 					});
@@ -156,6 +162,7 @@ window.__ModuleLoader__.load({
 					};
 				}
 				inflight = null;
+				inflightForce = false;
 				notify();
 			})();
 			return inflight;
@@ -297,6 +304,7 @@ window.__ModuleLoader__.load({
 			const [invoiceSummary, setInvoiceSummary] = react.useState(loadInvoiceSummary);
 			const [invoiceStatus, setInvoiceStatus] = react.useState(null);
 			const [invoiceJson, setInvoiceJson] = react.useState("");
+			const [refreshing, setRefreshing] = react.useState(false);
 			const rootRef = react.useRef(null);
 
 			const info = stats.status === "ok" ? stats.payload : null;
@@ -324,7 +332,7 @@ window.__ModuleLoader__.load({
 			const percent = billingTotal !== null && billingTotal > 0 && billingSpent !== null
 				? Math.round((billingSpent / billingTotal) * 1000) / 10
 				: localPercent;
-			const spinning = loading;
+			const spinning = loading || refreshing;
 
 			const importInvoices = () => {
 				try {
@@ -381,7 +389,9 @@ window.__ModuleLoader__.load({
 				title: t("refresh"),
 				onClick: (event) => {
 					event.stopPropagation();
-					statsStore.refresh();
+					setRefreshing(true);
+					const done = () => setRefreshing(false);
+					statsStore.refresh(true).then(done, done);
 				},
 				children: (0, react_jsx_runtime.jsx)(_ui_primitives.IconRefreshOutline16, { size: 14 })
 			});

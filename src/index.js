@@ -501,11 +501,21 @@ export function apply(ctx, rawConfig) {
     webCtx.effect(() => webCtx.webServer.register({
       kind: 'exact',
       path: '/balance-stats',
-      handler(req, res) {
+      handler: async (req, res) => {
         if (req.method !== 'GET' && req.method !== 'HEAD') {
           res.writeHead(405, { Allow: 'GET, HEAD' })
           res.end()
           return
+        }
+        // 手动刷新: GET ?force=1 时立即向 DeepSeek 重新拉取余额
+        // (refresh() 内部 inflight 去重, 与 5 分钟定时循环互斥),
+        // 并在后台重算总花费(不阻塞响应; 客户端轮询会拿到新结果)。
+        if (req.method === 'GET') {
+          const url = new URL(req.url ?? '/', 'http://localhost')
+          if (url.searchParams.get('force') === '1') {
+            await refresh()
+            void computeTotalCostDebounced()
+          }
         }
         const body = JSON.stringify(serialize())
         res.writeHead(200, {

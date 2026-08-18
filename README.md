@@ -70,7 +70,7 @@ pnpm --version
 - **Total spent**: uses an accounting-based percentage after an invoice import; otherwise falls back to the Harness local estimate.
 - **Details card**: shows spend today, over the last 7/30 days, per-model spend, token usage, and update time.
 - **JSON invoice import**: accepts a pasted `get_all_invoice` JSON response to calculate historical top-ups and accounting-based total spend.
-- **Caching and resilience**: retains the last successful balance when a request fails and refreshes server/client data on configurable intervals.
+- **Caching and resilience**: retains the last successful balance when a request fails and refreshes server/client data on configurable intervals. The refresh button in the stats bar immediately re-fetches the balance from DeepSeek.
 
 ## How figures are calculated
 
@@ -143,7 +143,7 @@ npx @deepseek-ai/dsh web
 
 Repository: <https://github.com/pangzi499/dsh-balance-stats>
 
-You can also download `dsh-balance-stats-0.1.1.tgz` from the GitHub Release and install it as a tarball.
+You can also download `dsh-balance-stats-0.1.2.tgz` from the GitHub Release and install it as a tarball.
 
 ### Local directory
 
@@ -164,7 +164,7 @@ npm pack
 Install:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.1.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.2.tgz
 npx @deepseek-ai/dsh web
 ```
 

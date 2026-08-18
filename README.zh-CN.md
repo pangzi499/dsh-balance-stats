@@ -72,7 +72,7 @@ pnpm --version
 - **累计消耗**：导入账单后优先显示账务口径百分比；未导入时回退到 Harness 本地估算。
 - **详情卡**：显示今天、最近 7/30 天花费、按模型分解、Token 用量和更新时间。
 - **JSON 账单导入**：直接粘贴 `get_all_invoice` 的 JSON 响应，计算历史充值与账务总消费。
-- **容错与缓存**：余额请求失败时保留上次成功数据；服务端和客户端均按配置周期刷新。
+- **容错与缓存**：余额请求失败时保留上次成功数据；服务端和客户端均按配置周期刷新。点击统计栏的刷新按钮可立即向 DeepSeek 重新拉取余额。
 
 ## 数据口径
 
@@ -147,7 +147,7 @@ npx @deepseek-ai/dsh web
 
 源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
 
-也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.1.tgz`，再按下方 tarball 方式安装。
+也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.2.tgz`，再按下方 tarball 方式安装。
 
 ### 本地目录
 
@@ -168,7 +168,7 @@ npm pack
 安装：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.1.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.2.tgz
 npx @deepseek-ai/dsh web
 ```
 
