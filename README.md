@@ -24,6 +24,8 @@ Start or restart Harness Web, then hard-refresh the browser:
 npx @deepseek-ai/dsh web
 ```
 
+> **Update**: `npx @deepseek-ai/dsh plugin --profile web update dsh-balance-stats`
+
 ## Screenshots
 
 ![Balance, current session, and total spend bar](images/dsh-balance-stats-overview.png)
@@ -168,19 +170,11 @@ npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stat
 npx @deepseek-ai/dsh web
 ```
 
-Then hard-refresh the browser:
-
-```text
-Command + Shift + R
-```
+Then hard-refresh the browser (macOS: `Command + Shift + R`; Windows/Linux: `Ctrl + Shift + R`).
 
 ## Updating
 
-Update to the latest version from the GitHub default branch:
-
-```sh
-npx @deepseek-ai/dsh plugin --profile web update dsh-balance-stats
-```
+For GitHub one-line installs, the update command is in [Quick install](#quick-install) above.
 
 For local-directory or tarball installations, run `add` again with the new path, then restart `dsh web`.
 

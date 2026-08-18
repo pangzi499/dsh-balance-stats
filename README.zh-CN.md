@@ -26,6 +26,8 @@ npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-b
 npx @deepseek-ai/dsh web
 ```
 
+> **更新**：`npx @deepseek-ai/dsh plugin --profile web update dsh-balance-stats`
+
 ## 界面预览
 
 ![余额、本次会话与累计消耗主栏](images/dsh-balance-stats-overview.png)
@@ -172,19 +174,11 @@ npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stat
 npx @deepseek-ai/dsh web
 ```
 
-安装后对浏览器执行一次强制刷新：
-
-```text
-Command + Shift + R
-```
+安装后对浏览器执行一次强制刷新（macOS：`Command + Shift + R`；Windows/Linux：`Ctrl + Shift + R`）。
 
 ## 更新
 
-更新到 GitHub 默认分支的最新版本：
-
-```sh
-npx @deepseek-ai/dsh plugin --profile web update dsh-balance-stats
-```
+GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句话安装)」。
 
 本地目录或 tarball 安装：使用新版本路径再执行一次 `add`，然后重启 `dsh web`。
 
@@ -208,7 +202,7 @@ npx @deepseek-ai/dsh plugin --profile web update dsh-balance-stats
     defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
 ```
 
-优先使用 `apiKeyRef`引用 Harness credentials。不要在要分享的 `cordis.patch.yml` 中写入真实 API Key。
+优先使用 `apiKeyRef` 引用 Harness credentials。不要在要分享的 `cordis.patch.yml` 中写入真实 API Key。
 
 ## 验证
 
