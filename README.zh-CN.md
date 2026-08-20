@@ -99,6 +99,10 @@ GET https://api.deepseek.com/user/balance
 
 这是本地估算，可能遗漏 Harness 之外、旧日志已删除或未写入标准 usage 事件的调用。
 
+`prices` 用于普通模型，以及 `2026-08-17 00:00 +08:00` 前的 v4 用量。该时间点后，
+v4 在北京时间 `09:00–12:00`、`14:00–18:00` 使用 `v4PeakPrices`，其余时段使用
+`v4OffPeakPrices`。三组价格均可配置。
+
 ### 历史账单
 
 DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
@@ -121,7 +125,7 @@ DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
 
 ```text
 累计消耗 = Harness 本地估算总花费
-             / (剩余充值余额 + Harness 本地估算总花费)
+             / (当前可用总余额 + Harness 本地估算总花费)
              × 100%
 ```
 
@@ -199,6 +203,14 @@ GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句
     prices:
       deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
       deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
+      deepseek-v4-flash: { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 }
+      deepseek-v4-pro: { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+    v4PeakPrices:
+      deepseek-v4-flash: { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
+      deepseek-v4-pro: { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 }
+    v4OffPeakPrices:
+      deepseek-v4-flash: { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
+      deepseek-v4-pro: { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
     defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
 ```
 

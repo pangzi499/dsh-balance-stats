@@ -97,6 +97,11 @@ The plugin scans usage events in Harness conversation logs and calculates spend 
 
 This is a local estimate. It may exclude calls made outside Harness, deleted historical logs, or calls without standard usage events.
 
+`prices` applies to ordinary models and v4 usage before `2026-08-17 00:00 +08:00`.
+After that cutoff, v4 usage selects `v4PeakPrices` during `09:00–12:00` and
+`14:00–18:00` Beijing time, and `v4OffPeakPrices` at other times. All three
+price maps are configurable.
+
 ### Historical invoices
 
 The public DeepSeek balance API does not return historical top-ups. To enable accounting-based figures:
@@ -118,7 +123,7 @@ Without imported invoices:
 
 ```text
 Total spent = Harness local estimated spend
-              / (remaining topped-up balance + Harness local estimated spend)
+              / (current total balance + Harness local estimated spend)
               × 100%
 ```
 
@@ -195,6 +200,14 @@ Override plugin configuration in `$DSH_HOME/profiles/web/cordis.patch.yml`. Conf
     prices:
       deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
       deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
+      deepseek-v4-flash: { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 }
+      deepseek-v4-pro: { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+    v4PeakPrices:
+      deepseek-v4-flash: { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
+      deepseek-v4-pro: { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 }
+    v4OffPeakPrices:
+      deepseek-v4-flash: { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
+      deepseek-v4-pro: { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
     defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
 ```
 

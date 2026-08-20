@@ -2,7 +2,7 @@
  * dsh-balance-stats — browser half (lazy-CJS 客户端 bundle)。
  *
  * 布局: 输入框下方 `conversation.composer.dock` 底部栏。
- *   - 一行三读数 —— 余额 ¥X / 当前会话花费 ¥Y / 总花销百分比 Z%,
+ *   - 一行三读数 —— 余额 ¥X / 当前会话花费 ¥Y / 累计消耗 Z%,
  *     右侧刷新; 点击整行弹出详情卡。
  *   - 详情卡(浮层): 完整六项 ——
  *       余额(总额/充值/赠送)、总花费(累计)、当前会话花费、已用百分比、
@@ -119,6 +119,17 @@ window.__ModuleLoader__.load({
 				importedAt: Date.now()
 			};
 		}
+
+		function calculateAccountingUsage(summary, balanceTotal) {
+			const total = summary.totalRecharge + summary.totalBonus;
+			const spent = Number.isFinite(balanceTotal)
+				? Math.round(Math.max(0, total - balanceTotal) * 1e6) / 1e6
+				: null;
+			const percent = total > 0 && spent !== null
+				? Math.round((spent / total) * 1000) / 10
+				: null;
+			return { total, spent, percent };
+		}
 		//#endregion
 
 		//#region stats store (单例轮询器: 拉 /balance-stats)
@@ -169,10 +180,13 @@ window.__ModuleLoader__.load({
 		}
 
 		function schedule() {
-			if (timer !== null) return;
+			if (!started || timer !== null) return;
 			timer = setTimeout(() => {
 				timer = null;
-				if (document.hidden) return;
+				if (document.hidden) {
+					schedule();
+					return;
+				}
 				refresh().then(schedule, schedule);
 			}, pollMs);
 		}
@@ -241,7 +255,7 @@ window.__ModuleLoader__.load({
 			"tokens": "Token 用量",
 			"tokensHint": "输入 / 输出 / 缓存读取",
 			"updated": "余额更新于 {time} · 每 {interval} 刷新",
-			"notice": "总花费按 DeepSeek 官方定价估算(可在 cordis.patch.yml 的 prices 调整); 不含未记录用量的调用。",
+			"notice": "总花费按配置价格估算(prices 及 v4PeakPrices/v4OffPeakPrices); 不含未记录用量的调用。",
 			"model.unknown": "未知模型",
 			"unit.minutes": "{n} 分钟",
 			"unit.seconds": "{n} 秒"
@@ -283,7 +297,7 @@ window.__ModuleLoader__.load({
 			"tokens": "Tokens",
 			"tokensHint": "Input / Output / Cache read",
 			"updated": "Balance updated {time} · every {interval}",
-			"notice": "Spend estimated at official DeepSeek rates (adjustable under prices in cordis.patch.yml); excludes calls without logged usage.",
+			"notice": "Spend is estimated from configured prices (prices and v4PeakPrices/v4OffPeakPrices); excludes calls without logged usage.",
 			"model.unknown": "unknown model",
 			"unit.minutes": "{n} min",
 			"unit.seconds": "{n} s"
@@ -327,11 +341,9 @@ window.__ModuleLoader__.load({
 			const day7 = Number.isFinite(statsBlock.day7) ? statsBlock.day7 : null;
 			const day30 = Number.isFinite(statsBlock.day30) ? statsBlock.day30 : null;
 			const sessionC = sessionCostValue !== null && sessionCostValue !== undefined && Number.isFinite(sessionCostValue.cost) ? sessionCostValue.cost : null;
-			const billingTotal = invoiceSummary !== null ? invoiceSummary.totalRecharge + invoiceSummary.totalBonus : null;
-			const billingSpent = billingTotal !== null && balanceTotal !== null ? Math.max(0, billingTotal - balanceTotal) : null;
-			const percent = billingTotal !== null && billingTotal > 0 && billingSpent !== null
-				? Math.round((billingSpent / billingTotal) * 1000) / 10
-				: localPercent;
+			const accounting = invoiceSummary !== null ? calculateAccountingUsage(invoiceSummary, balanceTotal) : null;
+			const billingSpent = accounting?.spent ?? null;
+			const percent = accounting?.percent ?? localPercent;
 			const spinning = loading || refreshing;
 
 			const importInvoices = () => {
@@ -541,7 +553,7 @@ window.__ModuleLoader__.load({
 
 		exports.apply = apply;
 		exports.inject = inject;
-		exports.__testing = { parseInvoiceExport };
+		exports.__testing = { parseInvoiceExport, calculateAccountingUsage };
 		return module.exports;
 	}
 });

@@ -17,11 +17,11 @@ const loadParser = async () => {
     if (id === '@deepseek-ai/dsh-client-ui-primitives') return {}
     throw new Error(`unexpected module: ${id}`)
   })
-  return exports.__testing.parseInvoiceExport
+  return exports.__testing
 }
 
 test('invoice parser totals successful payments and eligible bonuses only', async () => {
-  const parseInvoiceExport = await loadParser()
+  const { parseInvoiceExport } = await loadParser()
   const summary = parseInvoiceExport({
     data: { biz_data: { invoices: {
       payment_orders: [
@@ -52,7 +52,7 @@ test('invoice parser totals successful payments and eligible bonuses only', asyn
 })
 
 test('invoice parser rejects invalid amounts and mixed currencies', async () => {
-  const parseInvoiceExport = await loadParser()
+  const { parseInvoiceExport } = await loadParser()
   const wrap = (payment_orders) => ({ data: { biz_data: { invoices: { payment_orders } } } })
 
   assert.throws(() => parseInvoiceExport(wrap([
@@ -62,4 +62,33 @@ test('invoice parser rejects invalid amounts and mixed currencies', async () => 
     { payment_order_status: 'SUCCESS', amount: 1, currency: 'CNY' },
     { payment_order_status: 'SUCCESS', amount: 1, currency: 'USD' },
   ])), /mixed-currency/)
+})
+
+test('invoice parser totals the five reported successful top-ups', async () => {
+  const { parseInvoiceExport, calculateAccountingUsage } = await loadParser()
+  const summary = parseInvoiceExport({
+    data: { biz_data: { invoices: {
+      payment_orders: [10, 50, 50, 10, 10].map((amount) => ({
+        payment_order_status: 'SUCCESS', amount, currency: 'CNY',
+      })),
+      bonus_orders: [],
+    } } },
+  })
+
+  assert.equal(summary.totalRecharge, 130)
+  assert.equal(summary.totalBonus, 0)
+  assert.equal(summary.paymentOrderCount, 5)
+  assert.deepEqual(
+    { ...calculateAccountingUsage(summary, 9.96) },
+    { total: 130, spent: 120.04, percent: 92.3 },
+  )
+})
+
+test('accounting percent includes historical and remaining grants', async () => {
+  const { calculateAccountingUsage } = await loadParser()
+
+  assert.deepEqual(
+    { ...calculateAccountingUsage({ totalRecharge: 100, totalBonus: 20 }, 30) },
+    { total: 120, spent: 90, percent: 75 },
+  )
 })

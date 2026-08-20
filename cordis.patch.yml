@@ -5,6 +5,12 @@
 #     config:
 #       refreshIntervalMs: 120000      # 服务器向 DeepSeek 查询余额的频率(毫秒)
 #       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(毫秒)
+#       prices:                         # 普通模型及切换日前 v4 价格
+#         deepseek-v4-flash: { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 }
+#       v4PeakPrices:                   # 2026-08-17 起北京时间峰时价格
+#         deepseek-v4-flash: { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
+#       v4OffPeakPrices:                # 其余时段价格
+#         deepseek-v4-flash: { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
 - insert:
     - id: dsh-balance-stats
       name: dsh-balance-stats

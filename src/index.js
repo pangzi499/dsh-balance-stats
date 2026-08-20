@@ -6,8 +6,8 @@
  *   2. 总花费(totalCost): 跨全部会话累计估算消耗。
  *   3. 当前会话花费: sessionProjections 单元 `balanceStatsSessionCost`,
  *      客户端经 useProjection 实时读取(与 dsh-balance 同款机制)。
- *   4. 百分比(percent): 已用 = 总花费 / (余额 + 总花费) × 100,
- *      剩余 = 100 − 已用。其中"余额"指剩余充值(topped-up)。
+ *   4. 百分比(percent): 已用 = 总花费 / (可用总余额 + 总花费) × 100,
+ *      剩余 = 100 − 已用。
  *   5. 7天/30天花费: 按事件发生时间(含 v4 峰谷计价)分天累计,
  *      计算最近 7 天 / 30 天(含今天)合计。
  *
@@ -32,6 +32,15 @@ const DEFAULT_CONFIG = {
     'deepseek-chat': { cacheHit: 0.1, cacheMiss: 1, output: 2 },
     'deepseek-reasoner': { cacheHit: 1, cacheMiss: 4, output: 16 },
     'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 },
+    'deepseek-v4-pro': { cacheHit: 0.025, cacheMiss: 3, output: 6 },
+  },
+  v4PeakPrices: {
+    'deepseek-v4-flash': { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 },
+    'deepseek-v4-pro': { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 },
+  },
+  v4OffPeakPrices: {
+    'deepseek-v4-flash': { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
+    'deepseek-v4-pro': { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 },
   },
   defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 },
 }
@@ -52,6 +61,8 @@ export const Config = z.object({
   timeoutMs: z.number().default(DEFAULT_CONFIG.timeoutMs),
   currency: z.string().default(DEFAULT_CONFIG.currency),
   prices: z.dict(priceSchema).default(DEFAULT_CONFIG.prices),
+  v4PeakPrices: z.dict(priceSchema).default(DEFAULT_CONFIG.v4PeakPrices),
+  v4OffPeakPrices: z.dict(priceSchema).default(DEFAULT_CONFIG.v4OffPeakPrices),
   defaultPrices: priceSchema.default(DEFAULT_CONFIG.defaultPrices),
 })
 
@@ -70,9 +81,14 @@ const normalizeConfig = (raw) => {
       output: num(o.output, dflt.output, 0),
     }
   }
-  const prices = {}
-  const rawPrices = src.prices && typeof src.prices === 'object' ? src.prices : {}
-  for (const [model, p] of Object.entries(rawPrices)) prices[model] = price(p, DEFAULT_CONFIG.defaultPrices)
+  const priceMap = (raw, defaults) => {
+    const source = raw && typeof raw === 'object' ? raw : {}
+    const prices = {}
+    for (const [model, value] of Object.entries({ ...defaults, ...source })) {
+      prices[model] = price(value, defaults[model] ?? DEFAULT_CONFIG.defaultPrices)
+    }
+    return prices
+  }
   return {
     apiKey: typeof src.apiKey === 'string' ? src.apiKey : '',
     apiKeyRef: typeof src.apiKeyRef === 'string' && src.apiKeyRef !== '' ? src.apiKeyRef : 'DEEPSEEK_API_KEY',
@@ -81,7 +97,9 @@ const normalizeConfig = (raw) => {
     clientPollIntervalMs: num(src.clientPollIntervalMs, 30000, 5000),
     timeoutMs: num(src.timeoutMs, 8000, 1000),
     currency: typeof src.currency === 'string' && src.currency !== '' ? src.currency : 'CNY',
-    prices,
+    prices: priceMap(src.prices, DEFAULT_CONFIG.prices),
+    v4PeakPrices: priceMap(src.v4PeakPrices, DEFAULT_CONFIG.v4PeakPrices),
+    v4OffPeakPrices: priceMap(src.v4OffPeakPrices, DEFAULT_CONFIG.v4OffPeakPrices),
     defaultPrices: price(src.defaultPrices, DEFAULT_CONFIG.defaultPrices),
   }
 }
@@ -108,6 +126,26 @@ const dayKeyOf = (ms) => {
   const d = new Date(ms)
   const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+const round6 = (n) => Math.round(n * 1e6) / 1e6
+
+/** 将独立舍入产生的微小尾差归入绝对值最大的现有分组。 */
+const reconcileRoundedBreakdown = (breakdown, total, positiveOnly = false) => {
+  const rounded = {}
+  for (const [key, value] of Object.entries(breakdown)) {
+    const amount = round6(value)
+    if (!positiveOnly || amount > 0) rounded[key] = amount
+  }
+  const keys = Object.keys(rounded)
+  if (keys.length === 0) return rounded
+  const sum = round6(Object.values(rounded).reduce((acc, amount) => acc + amount, 0))
+  const residual = round6(round6(total) - sum)
+  if (residual !== 0) {
+    const target = keys.reduce((best, key) => Math.abs(rounded[key]) > Math.abs(rounded[best]) ? key : best)
+    rounded[target] = round6(rounded[target] + residual)
+  }
+  return rounded
 }
 
 /**
@@ -149,20 +187,14 @@ const makeSessionFolder = (config) => {
     const t = typeof timestamp === 'number' && timestamp > 0 ? timestamp : Date.now()
     // 2026-08-17T00:00:00+08:00 起 v4 峰谷计价
     const isAfterCutoff = t >= 1786896000000
-    if (!isAfterCutoff) {
-      if (isV4Flash) return { cacheHit: 0.02, cacheMiss: 1, output: 2 }
-      if (isV4Pro) return { cacheHit: 0.025, cacheMiss: 3, output: 6 }
-    }
+    if (!isAfterCutoff) return config.prices[model] ?? DEFAULT_CONFIG.prices[model] ?? config.defaultPrices
     const d = new Date(t)
     const hourBJT = (d.getUTCHours() + 8) % 24
     const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
-    if (isPeak) {
-      if (isV4Flash) return { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
-      if (isV4Pro) return { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 }
-    }
-    if (isV4Flash) return { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
-    if (isV4Pro) return { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
-    return config.defaultPrices
+    const prices = isPeak
+      ? config.v4PeakPrices ?? DEFAULT_CONFIG.v4PeakPrices
+      : config.v4OffPeakPrices ?? DEFAULT_CONFIG.v4OffPeakPrices
+    return prices[model] ?? config.defaultPrices
   }
   const costOf = (buckets, model, timestamp) => {
     const p = priceOf(model, timestamp)
@@ -170,10 +202,8 @@ const makeSessionFolder = (config) => {
       buckets.cacheReadTokens * p.cacheHit +
       buckets.outputTokens * p.output) / 1e6
   }
-  const round6 = (n) => Math.round(n * 1e6) / 1e6
-
   return {
-    init: () => ({ currentModel: null, last: null, byModel: {}, modelOrder: [], costByDay: {}, totalCost: 0 }),
+    init: () => ({ currentModel: null, last: null, byModel: {}, modelOrder: [], costByDay: {}, costByModel: {}, totalCost: 0 }),
     /** 喂入一条会话事件; 返回新的状态。 */
     apply(state, event) {
       let nextModel = state.currentModel
@@ -204,7 +234,9 @@ const makeSessionFolder = (config) => {
         return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
       }
       // 替换语义的增量计价: 新样本价 − 旧样本价
-      const delta = costOf(buckets, model, timestamp) - (previous !== null ? costOf(previous.buckets, previous.model, previous.time) : 0)
+      const currentCost = costOf(buckets, model, timestamp)
+      const previousCost = previous !== null ? costOf(previous.buckets, previous.model, previous.time) : 0
+      const delta = currentCost - previousCost
       const dayKey = dayKeyOf(timestamp)
       const isNewModel = !(model in state.byModel)
       let byModel = state.byModel
@@ -212,6 +244,11 @@ const makeSessionFolder = (config) => {
         byModel = { ...byModel, [previous.model]: subBuckets(byModel[previous.model] ?? zero(), previous.buckets) }
       }
       byModel = { ...byModel, [model]: addBuckets(byModel[model] ?? zero(), buckets) }
+      let costByModel = { ...(state.costByModel ?? {}) }
+      if (previous !== null) {
+        costByModel[previous.model] = round6((costByModel[previous.model] ?? 0) - previousCost)
+      }
+      costByModel[model] = round6((costByModel[model] ?? 0) + currentCost)
       return {
         ...state,
         currentModel: nextModel,
@@ -219,22 +256,26 @@ const makeSessionFolder = (config) => {
         byModel,
         modelOrder: isNewModel ? [...state.modelOrder, model] : state.modelOrder,
         costByDay: { ...state.costByDay, [dayKey]: round6((state.costByDay[dayKey] ?? 0) + delta) },
+        costByModel,
         totalCost: round6(state.totalCost + delta),
       }
     },
     view: (state) => {
       const tokens = { uncachedInput: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
-      const costByModel = {}
       for (const model of state.modelOrder) {
         const b = state.byModel[model] ?? zero()
         tokens.uncachedInput += b.uncachedInputTokens
         tokens.cacheRead += b.cacheReadTokens
         tokens.cacheWrite += b.cacheWriteTokens
         tokens.output += b.outputTokens
-        const c = costOf(b, model, Date.now())
-        if (c > 0) costByModel[model] = round6(c)
       }
-      return { cost: state.totalCost, costByModel, tokens, costByDay: state.costByDay }
+      const cost = round6(state.totalCost)
+      return {
+        cost,
+        costByModel: reconcileRoundedBreakdown(state.costByModel ?? {}, cost, true),
+        tokens,
+        costByDay: reconcileRoundedBreakdown(state.costByDay, cost),
+      }
     },
   }
 }
@@ -250,8 +291,13 @@ const sumLastDays = (costByDay, n) => {
   return Math.round(sum * 1e6) / 1e6
 }
 
+/** 本地估算已用比例；余额使用 `/user/balance` 的可用总额。 */
+const estimatedUsedPercent = (totalCost, totalBalance) => (totalBalance + totalCost) > 0
+  ? Math.round((totalCost / (totalBalance + totalCost)) * 1000) / 10
+  : 0
+
 /** 仅供纯计算单元测试使用；插件运行入口仍为 apply。 */
-export const __testing = { makeSessionFolder, sumLastDays }
+export const __testing = { makeSessionFolder, sumLastDays, estimatedUsedPercent }
 
 export function apply(ctx, rawConfig) {
   const config = normalizeConfig(rawConfig)
@@ -380,14 +426,12 @@ export function apply(ctx, rawConfig) {
         }
       })
       await Promise.all(workers)
-      const round6 = (n) => Math.round(n * 1e6) / 1e6
-      for (const day of Object.keys(totalCostByDay)) totalCostByDay[day] = round6(totalCostByDay[day])
-      for (const model of Object.keys(totalCostByModel)) totalCostByModel[model] = round6(totalCostByModel[model])
+      const roundedTotalCost = round6(totalCost)
       costCache = {
         state: 'ok',
-        cost: round6(totalCost),
-        costByDay: totalCostByDay,
-        costByModel: totalCostByModel,
+        cost: roundedTotalCost,
+        costByDay: reconcileRoundedBreakdown(totalCostByDay, roundedTotalCost),
+        costByModel: reconcileRoundedBreakdown(totalCostByModel, roundedTotalCost, true),
         tokens: totalTokens,
         sessions,
         error: null,
@@ -449,7 +493,7 @@ export function apply(ctx, rawConfig) {
           currency: config.currency,
         }
       },
-      stateVersion: 1,
+      stateVersion: 2,
     })
   })
 
@@ -477,16 +521,13 @@ export function apply(ctx, rawConfig) {
         out = { ...base, error: cache.error ?? 'unknown' }
       }
       const primary = out.balances?.[0]
-      const balance = typeof primary?.toppedUp === 'number' ? primary.toppedUp : 0
+      const balance = typeof primary?.total === 'number' ? primary.total : 0
       const totalCost = costCache.state === 'ok' ? costCache.cost : 0
       const costByDay = costCache.state === 'ok' ? costCache.costByDay : {}
       out.stats = {
         state: costCache.state,
         totalCost,
-        // 用户口径: 百分比 = 总花费 / (余额 + 总花费) × 100
-        percent: (balance + totalCost) > 0
-          ? Math.round((totalCost / (balance + totalCost)) * 1000) / 10
-          : 0,
+        percent: estimatedUsedPercent(totalCost, balance),
         today: sumLastDays(costByDay, 1),
         day7: sumLastDays(costByDay, 7),
         day30: sumLastDays(costByDay, 30),
@@ -507,14 +548,12 @@ export function apply(ctx, rawConfig) {
           res.end()
           return
         }
-        // 手动刷新: GET ?force=1 时立即向 DeepSeek 重新拉取余额
-        // (refresh() 内部 inflight 去重, 与 5 分钟定时循环互斥),
-        // 并在后台重算总花费(不阻塞响应; 客户端轮询会拿到新结果)。
+        // 手动刷新: GET ?force=1 时同时刷新余额与总花费，避免返回
+        // “新余额 + 旧成本”的混合快照。
         if (req.method === 'GET') {
           const url = new URL(req.url ?? '/', 'http://localhost')
           if (url.searchParams.get('force') === '1') {
-            await refresh()
-            void computeTotalCostDebounced()
+            await Promise.all([refresh(), computeTotalCostDebounced()])
           }
         }
         const body = JSON.stringify(serialize())
