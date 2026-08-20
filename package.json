@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance-stats",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Community balance and spend statistics plugin for DeepSeek Harness Web, with session usage and privacy-preserving invoice summaries.",
   "author": "Stephen <37542033+pangzi499@users.noreply.github.com>",
   "repository": {
