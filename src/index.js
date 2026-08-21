@@ -28,6 +28,10 @@ const DEFAULT_CONFIG = {
   clientPollIntervalMs: 30000,
   timeoutMs: 8000,
   currency: 'CNY',
+  platformToken: '',
+  platformTokenRef: 'DEEPSEEK_PLATFORM_TOKEN',
+  invoiceRefreshIntervalMs: 21600000,
+  platformBaseUrl: 'https://platform.deepseek.com',
   prices: {
     'deepseek-chat': { cacheHit: 0.1, cacheMiss: 1, output: 2 },
     'deepseek-reasoner': { cacheHit: 1, cacheMiss: 4, output: 16 },
@@ -60,6 +64,10 @@ export const Config = z.object({
   clientPollIntervalMs: z.number().default(DEFAULT_CONFIG.clientPollIntervalMs),
   timeoutMs: z.number().default(DEFAULT_CONFIG.timeoutMs),
   currency: z.string().default(DEFAULT_CONFIG.currency),
+  platformToken: z.string().default(DEFAULT_CONFIG.platformToken),
+  platformTokenRef: z.string().default(DEFAULT_CONFIG.platformTokenRef),
+  invoiceRefreshIntervalMs: z.number().default(DEFAULT_CONFIG.invoiceRefreshIntervalMs),
+  platformBaseUrl: z.string().default(DEFAULT_CONFIG.platformBaseUrl),
   prices: z.dict(priceSchema).default(DEFAULT_CONFIG.prices),
   v4PeakPrices: z.dict(priceSchema).default(DEFAULT_CONFIG.v4PeakPrices),
   v4OffPeakPrices: z.dict(priceSchema).default(DEFAULT_CONFIG.v4OffPeakPrices),
@@ -97,6 +105,10 @@ const normalizeConfig = (raw) => {
     clientPollIntervalMs: num(src.clientPollIntervalMs, 30000, 5000),
     timeoutMs: num(src.timeoutMs, 8000, 1000),
     currency: typeof src.currency === 'string' && src.currency !== '' ? src.currency : 'CNY',
+    platformToken: typeof src.platformToken === 'string' ? src.platformToken : '',
+    platformTokenRef: typeof src.platformTokenRef === 'string' && src.platformTokenRef !== '' ? src.platformTokenRef : 'DEEPSEEK_PLATFORM_TOKEN',
+    invoiceRefreshIntervalMs: num(src.invoiceRefreshIntervalMs, 21600000, 600000),
+    platformBaseUrl: typeof src.platformBaseUrl === 'string' && src.platformBaseUrl !== '' ? src.platformBaseUrl : 'https://platform.deepseek.com',
     prices: priceMap(src.prices, DEFAULT_CONFIG.prices),
     v4PeakPrices: priceMap(src.v4PeakPrices, DEFAULT_CONFIG.v4PeakPrices),
     v4OffPeakPrices: priceMap(src.v4OffPeakPrices, DEFAULT_CONFIG.v4OffPeakPrices),
@@ -119,6 +131,78 @@ const normalizeBalances = (data) => {
     granted: toAmount(info?.granted_balance),
     toppedUp: toAmount(info?.topped_up_balance),
   }))
+}
+
+/**
+ * 归一化用户粘贴的 platform.deepseek.com userToken。
+ * localStorage 原始值可能是纯字符串、JSON 字符串或 {value|token|access_token|
+ * accessToken|userToken} 包裹；有效 token 为 ≥20 字符且不含空白。
+ */
+const TOKEN_KEYS = ['value', 'token', 'access_token', 'accessToken', 'userToken']
+export const extractUserToken = (raw) => {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (trimmed === '') return null
+  let candidate = trimmed
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (typeof parsed === 'string') {
+      candidate = parsed
+    } else if (parsed !== null && typeof parsed === 'object') {
+      for (const key of TOKEN_KEYS) {
+        if (typeof parsed[key] === 'string' && parsed[key].trim() !== '') {
+          candidate = parsed[key]
+          break
+        }
+      }
+    }
+  } catch {
+    /* 非 JSON, 按原样处理 */
+  }
+  candidate = candidate.trim()
+  if (candidate.length >= 2 &&
+    ((candidate.startsWith('"') && candidate.endsWith('"')) ||
+      (candidate.startsWith("'") && candidate.endsWith("'")))) {
+    candidate = candidate.slice(1, -1).trim()
+  }
+  return candidate.length >= 20 && !/\s/.test(candidate) ? candidate : null
+}
+
+/** 掩码展示用: 只保留末 4 位。 */
+const tokenHintOf = (token) => typeof token === 'string' && token.length >= 4 ? token.slice(-4) : null
+
+/**
+ * 服务端版账单解析(与 client/client.js 的 parseInvoiceExport 同语义:
+ * 仅计 payment_order_status === "SUCCESS" 的充值; 赠送单按 status /
+ * bonus_order_status 过滤; 币种必须一致)。两份实现需保持同步。
+ */
+export const parseInvoiceExport = (payload) => {
+  const invoices = payload?.data?.biz_data?.invoices
+  if (invoices === null || typeof invoices !== 'object' || !Array.isArray(invoices.payment_orders)) {
+    throw new Error('invalid-structure')
+  }
+  const successful = invoices.payment_orders.filter((order) => order?.payment_order_status === 'SUCCESS')
+  const currencies = [...new Set(successful.map((order) => order?.currency).filter((value) => typeof value === 'string' && value !== ''))]
+  if (currencies.length > 1) throw new Error('mixed-currency')
+  const sumAmounts = (orders) => orders.reduce((sum, order) => {
+    const amount = Number(order?.amount ?? 0)
+    if (!Number.isFinite(amount) || amount < 0) throw new Error('invalid-amount')
+    return sum + amount
+  }, 0)
+  const bonusOrders = Array.isArray(invoices.bonus_orders) ? invoices.bonus_orders : []
+  const eligibleBonus = bonusOrders.filter((order) => {
+    if (order?.status !== undefined) return order.status === 'SUCCESS'
+    if (order?.bonus_order_status !== undefined) return order.bonus_order_status === 'SUCCESS'
+    return true
+  })
+  return {
+    totalRecharge: Math.round(sumAmounts(successful) * 1e6) / 1e6,
+    totalBonus: Math.round(sumAmounts(eligibleBonus) * 1e6) / 1e6,
+    currency: currencies[0] ?? 'CNY',
+    paymentOrderCount: successful.length,
+    bonusOrderCount: eligibleBonus.length,
+    importedAt: Date.now(),
+  }
 }
 
 /** 本地日期键 YYYY-MM-DD(服务器本地时区)。 */
@@ -297,7 +381,7 @@ const estimatedUsedPercent = (totalCost, totalBalance) => (totalBalance + totalC
   : 0
 
 /** 仅供纯计算单元测试使用；插件运行入口仍为 apply。 */
-export const __testing = { makeSessionFolder, sumLastDays, estimatedUsedPercent }
+export const __testing = { makeSessionFolder, sumLastDays, estimatedUsedPercent, extractUserToken, parseInvoiceExport, tokenHintOf }
 
 export function apply(ctx, rawConfig) {
   const config = normalizeConfig(rawConfig)
@@ -476,6 +560,143 @@ export function apply(ctx, rawConfig) {
     return () => clearTimeout(timer)
   }, 'dsh-balance-stats: cost fold loop')
 
+  // ---- 账单自动获取(platform.deepseek.com get_all_invoice, userToken 认证) ----
+  // token 来源优先级: UI 内存粘贴 > cordis 配置 platformToken >
+  // credentials seam(platformTokenRef, 持久化文件) > 环境变量。
+  const PLATFORM_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+  let invoiceState = { state: 'empty', summary: null, error: null, fetchedAt: 0, consecutiveFailures: 0 }
+  let invoiceManualSummary = null // JSON 粘贴导入(无 token)的服务端汇总
+  let invoiceToken = null         // 本次会话内 UI 提交的 token(优先于持久来源)
+  let invoiceTokenSource = null   // 'memory' | 'file' | 'config' | 'env'
+  let invoiceFromSave = false     // UI 刚保存过: 来源以保存时的持久化结果为准, 不被轮询解析覆盖
+  let invoiceWritable = null      // credentials seam describe().writable
+  let nextInvoiceRefreshAt = 0
+  let invoiceInflight = null
+
+  /** 解析当前生效的 platform token; 无则返回 null。 */
+  const resolvePlatformToken = async () => {
+    if (invoiceToken !== null) return { token: invoiceToken, source: 'memory' }
+    if (config.platformToken !== '') return { token: config.platformToken, source: 'config' }
+    const credentials = ctx.get('credentials')
+    if (credentials !== undefined && typeof credentials.resolve === 'function') {
+      try {
+        const hit = await credentials.resolve(config.platformTokenRef)
+        if (hit !== undefined && typeof hit.value === 'string' && hit.value !== '') {
+          return { token: hit.value, source: hit.source === 'env' ? 'env' : 'file' }
+        }
+      } catch {
+        /* 解析失败视为未配置 */
+      }
+    }
+    const fromEnv = process.env[config.platformTokenRef]
+    if (typeof fromEnv === 'string' && fromEnv !== '') return { token: fromEnv, source: 'env' }
+    return null
+  }
+
+  /** 拉取 get_all_invoice 原始响应; 会话失效返回 { ok:false, reason }, 其余异常抛出。 */
+  const fetchInvoiceDocument = async (token) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), config.timeoutMs)
+    try {
+      const res = await fetch(`${config.platformBaseUrl.replace(/\/+$/, '')}/auth-api/v0/users/get_all_invoice`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+          // 平台前置 WAF 会拦截非浏览器 UA 的请求
+          'User-Agent': PLATFORM_UA,
+        },
+        signal: controller.signal,
+      })
+      if (!res.ok) throw new Error(`DeepSeek Platform HTTP ${res.status}`)
+      const data = await res.json()
+      const code = data !== null && typeof data === 'object' ? data.code : undefined
+      // auth-api 系列成功码为 0(部分端点亦见 200); 40002/40003 为会话失效
+      if (code === 40002 || code === 40003) return { ok: false, reason: 'session-expired' }
+      if (code !== undefined && code !== 0 && code !== 200) {
+        throw new Error(`DeepSeek Platform code ${code}`)
+      }
+      return { ok: true, data }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  /** 单次账单刷新: 解析 token → 拉取 → 解析汇总 → 更新状态机。 */
+  const refreshInvoices = () => {
+    if (invoiceInflight !== null) return invoiceInflight
+    invoiceInflight = (async () => {
+      const resolved = await resolvePlatformToken()
+      // UI 保存过的 token: 来源已在保存时确定(file/memory), 不被解析结果覆盖
+      if (!invoiceFromSave) invoiceTokenSource = resolved?.source ?? null
+      const credentials = ctx.get('credentials')
+      if (credentials !== undefined && typeof credentials.describe === 'function') {
+        try {
+          const info = await credentials.describe(config.platformTokenRef)
+          invoiceWritable = info?.writable !== false
+        } catch {
+          invoiceWritable = null
+        }
+      }
+      if (resolved === null) {
+        invoiceState = { state: 'empty', summary: null, error: null, fetchedAt: 0, consecutiveFailures: 0 }
+        return
+      }
+      try {
+        const result = await fetchInvoiceDocument(resolved.token)
+        if (!result.ok) {
+          // 会话过期/无效: 保留上次成功汇总(stale-while-error), 固定间隔重试
+          ctx.logger.warn(`[dsh-balance-stats] invoice fetch: session expired (${resolved.source} token)`)
+          invoiceState = { ...invoiceState, state: 'session-expired', error: 'session-expired', consecutiveFailures: 0 }
+          return
+        }
+        const summary = parseInvoiceExport(result.data)
+        invoiceState = {
+          state: 'ok',
+          summary,
+          error: null,
+          fetchedAt: Date.now(),
+          consecutiveFailures: 0,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const failures = invoiceState.consecutiveFailures + 1
+        if (failures === 1) ctx.logger.warn(`[dsh-balance-stats] invoice fetch failed: ${message}`)
+        // 失败保留旧汇总; 汇总从未成功时置为空态避免展示半途数据
+        invoiceState = {
+          ...invoiceState,
+          state: invoiceState.summary !== null ? 'error' : 'empty',
+          error: message,
+          consecutiveFailures: failures,
+        }
+      }
+    })().finally(() => {
+      invoiceInflight = null
+    })
+    return invoiceInflight
+  }
+
+  ctx.effect(() => {
+    let timer = null
+    let disposed = false
+    let run = () => {
+      void refreshInvoices().then(() => {
+        if (disposed) return
+        let delay
+        if (invoiceState.state === 'empty') delay = 60000
+        else if (invoiceState.state === 'error') delay = Math.min(60000 * 2 ** invoiceState.consecutiveFailures, config.invoiceRefreshIntervalMs)
+        else delay = config.invoiceRefreshIntervalMs // ok / session-expired 固定间隔
+        nextInvoiceRefreshAt = Date.now() + delay
+        timer = setTimeout(run, delay)
+      })
+    }
+    timer = setTimeout(run, 2500)
+    return () => {
+      disposed = true
+      clearTimeout(timer)
+    }
+  }, 'dsh-balance-stats: invoice loop')
+
+
   // 当前会话花费投影: 客户端 useProjection("balanceStatsSessionCost") 实时读取。
   // schema 只需带 parse(投影边界只调用 schema.parse(view)); 避免引入 zod 依赖。
   ctx.inject(['sessionProjections'], (projectionCtx) => {
@@ -537,14 +758,208 @@ export function apply(ctx, rawConfig) {
         sessions: costCache.state === 'ok' ? costCache.sessions : 0,
         ...(costCache.error !== null ? { error: costCache.error } : {}),
       }
+      // 账单块: state 描述自动获取链路健康度; 汇总在失败时保留旧值
+      // (stale-while-error); summarySource 区分自动获取与手动 JSON 导入。
+      const summary = invoiceState.summary ?? invoiceManualSummary
+      out.invoice = {
+        enabled: invoiceTokenSource !== null,
+        state: invoiceState.state,
+        fetchedAt: invoiceState.fetchedAt,
+        nextRefreshAt: nextInvoiceRefreshAt,
+        summary: summary !== null && summary !== undefined ? summary : null,
+        summarySource: invoiceState.summary !== null ? 'auto' : invoiceManualSummary !== null ? 'manual' : null,
+        error: invoiceState.error,
+        tokenHint: invoiceToken !== null ? tokenHintOf(invoiceToken) : null,
+        source: invoiceTokenSource,
+        writable: invoiceWritable,
+      }
       return out
     }
+
+    // ---- 导入端点(POST /balance-stats) ----
+    // 书签/油猴脚本从 https://platform.deepseek.com 同源读取 userToken 后
+    // POST 到本机; 详情卡 UI 也走同一端点。仅放行平台来源的跨域请求。
+    const CORS_ORIGIN = 'https://platform.deepseek.com'
+    const IMPORT_BODY_LIMIT = 256 * 1024
+
+    const corsHeadersFor = (req) => {
+      const origin = req.headers?.origin
+      return typeof origin === 'string' && origin === CORS_ORIGIN
+        ? { 'Access-Control-Allow-Origin': CORS_ORIGIN, Vary: 'Origin' }
+        : {}
+    }
+
+    const optionsHeadersFor = (req) => {
+      const cors = corsHeadersFor(req)
+      if (cors['Access-Control-Allow-Origin'] === undefined) return {}
+      const headers = {
+        ...cors,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'content-type',
+        'Access-Control-Max-Age': '600',
+      }
+      // Chrome 私有网络访问(PNA): HTTPS 页面 → http://127.0.0.1 需显式允许
+      if (req.headers?.['access-control-request-private-network'] === 'true') {
+        headers['Access-Control-Allow-Private-Network'] = 'true'
+      }
+      return headers
+    }
+
+    const jsonRespond = (res, status, payload, cors) => {
+      const body = JSON.stringify(payload)
+      res.writeHead(status, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        ...cors,
+        'Content-Length': Buffer.byteLength(body),
+      })
+      res.end(body)
+    }
+
+    const readJsonBody = (req) => new Promise((resolveBody, reject) => {
+      const chunks = []
+      let size = 0
+      req.on('data', (chunk) => {
+        size += chunk.length
+        if (size > IMPORT_BODY_LIMIT) {
+          const error = new Error('payload-too-large')
+          error.code = 'payload-too-large'
+          reject(error)
+          if (typeof req.destroy === 'function') req.destroy()
+          return
+        }
+        chunks.push(chunk)
+      })
+      req.on('end', () => {
+        if (size === 0) {
+          resolveBody({})
+          return
+        }
+        try {
+          resolveBody(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+        } catch {
+          const error = new Error('invalid-json')
+          error.code = 'invalid-json'
+          reject(error)
+        }
+      })
+      req.on('error', reject)
+    })
+
+    /** 保存 token: 先验证一次拉取, 成功后尽量持久化到 credentials 文档。 */
+    const importUserToken = async (raw) => {
+      const token = extractUserToken(raw)
+      if (token === null) return { ok: false, error: 'invalid-token' }
+      let document
+      try {
+        const result = await fetchInvoiceDocument(token)
+        if (!result.ok) return { ok: false, error: result.reason }
+        document = result.data
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+      }
+      let summary
+      try {
+        summary = parseInvoiceExport(document)
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : 'invalid-structure' }
+      }
+      // 持久化: seam 可写则写入凭证文档(重启自动恢复); 失败降级为内存并记录原因
+      let source = 'memory'
+      const credentials = ctx.get('credentials')
+      if (credentials !== undefined && typeof credentials.set === 'function') {
+        try {
+          if (typeof credentials.describe === 'function') {
+            const info = await credentials.describe(config.platformTokenRef)
+            invoiceWritable = info?.writable !== false
+          }
+          await credentials.set(config.platformTokenRef, token)
+          source = 'file'
+        } catch (error) {
+          source = 'memory'
+          ctx.logger.warn(`[dsh-balance-stats] credential persist failed: ${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
+      invoiceToken = token
+      invoiceTokenSource = source
+      invoiceFromSave = true
+      invoiceState = {
+        state: 'ok',
+        summary,
+        error: null,
+        fetchedAt: Date.now(),
+        consecutiveFailures: 0,
+      }
+      return { ok: true, source, summary, tokenHint: tokenHintOf(token) }
+    }
+
+    /** 清除: 丢弃内存 token、服务端汇总, 并尽量 unset 凭证文档中的持久副本。 */
+    const clearImport = async () => {
+      invoiceToken = null
+      invoiceTokenSource = null
+      invoiceFromSave = false
+      invoiceManualSummary = null
+      invoiceState = { state: 'empty', summary: null, error: null, fetchedAt: 0, consecutiveFailures: 0 }
+      const credentials = ctx.get('credentials')
+      if (credentials !== undefined && typeof credentials.unset === 'function' && invoiceWritable !== false) {
+        try {
+          await credentials.unset(config.platformTokenRef)
+        } catch {
+          /* 无法清除(遮蔽/权限)时忽略, 由 remainingSource 反映现状 */
+        }
+      }
+      const remaining = await resolvePlatformToken()
+      invoiceTokenSource = remaining?.source ?? null
+      return { ok: true, cleared: true, remainingSource: remaining?.source ?? null }
+    }
+
+    const handleImport = async (req, res) => {
+      const cors = corsHeadersFor(req)
+      let bodyPayload
+      try {
+        bodyPayload = await readJsonBody(req)
+      } catch (error) {
+        jsonRespond(res, error.code === 'payload-too-large' ? 413 : 400, { ok: false, error: error.code ?? 'invalid-json' }, cors)
+        return
+      }
+      if (bodyPayload === null || typeof bodyPayload !== 'object' || Array.isArray(bodyPayload)) {
+        jsonRespond(res, 400, { ok: false, error: 'invalid-json' }, cors)
+        return
+      }
+      if (bodyPayload.clear === true) {
+        jsonRespond(res, 200, await clearImport(), cors)
+        return
+      }
+      if (typeof bodyPayload.userToken === 'string' && bodyPayload.userToken.trim() !== '') {
+        jsonRespond(res, 200, await importUserToken(bodyPayload.userToken), cors)
+        return
+      }
+      // 其余情况: 整个 body 视为 get_all_invoice 原始响应(手动 JSON 导入, 不保存 token)
+      try {
+        invoiceManualSummary = parseInvoiceExport(bodyPayload)
+      } catch (error) {
+        jsonRespond(res, 200, { ok: false, error: error instanceof Error ? error.message : 'invalid-structure' }, cors)
+        return
+      }
+      jsonRespond(res, 200, { ok: true, mode: 'invoice', summary: invoiceManualSummary }, cors)
+    }
+
     webCtx.effect(() => webCtx.webServer.register({
       kind: 'exact',
       path: '/balance-stats',
       handler: async (req, res) => {
+        if (req.method === 'OPTIONS') {
+          const headers = optionsHeadersFor(req)
+          res.writeHead(headers['Access-Control-Allow-Origin'] !== undefined ? 204 : 405, headers['Access-Control-Allow-Origin'] !== undefined ? headers : { Allow: 'GET, HEAD, POST, OPTIONS' })
+          res.end()
+          return
+        }
+        if (req.method === 'POST') {
+          await handleImport(req, res)
+          return
+        }
         if (req.method !== 'GET' && req.method !== 'HEAD') {
-          res.writeHead(405, { Allow: 'GET, HEAD' })
+          res.writeHead(405, { Allow: 'GET, HEAD, POST, OPTIONS' })
           res.end()
           return
         }

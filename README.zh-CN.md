@@ -44,8 +44,9 @@ npx @deepseek-ai/dsh web
 - **本次会话**：通过 composer 作用域的 `balanceStatsSessionCost` projection 实时估算当前会话花费。
 - **累计消耗**：导入账单后优先显示账务口径百分比；未导入时回退到 Harness 本地估算。
 - **详情卡**：显示今天、最近 7/30 天花费、按模型分解、Token 用量和更新时间。
-- **JSON 账单导入**：直接粘贴 `get_all_invoice` 的 JSON 响应，计算历史充值与账务总消费；导入后自动强制刷新余额，所有读数立即同步。
-- **容错与缓存**：余额请求失败时保留上次成功数据；服务端和客户端均按配置周期刷新。点击统计栏的刷新按钮可立即向 DeepSeek 重新拉取余额。
+- **账单自动获取（可选）**：在详情卡里粘贴一次平台 `userToken`，服务端即按周期自动拉取账单并计算账务口径；token 可持久化到本机凭证文件（权限 0600），重启自动恢复，一键可清除。
+- **JSON 账单导入（兜底）**：不提供 token 时，仍可直接粘贴 `get_all_invoice` 的 JSON 响应完成一次性导入；导入后自动强制刷新余额。
+- **容错与缓存**：余额/账单请求失败时保留上次成功数据（stale-while-error）；服务端和客户端均按配置周期刷新。点击统计栏的刷新按钮可立即向 DeepSeek 重新拉取。
 
 <details>
 <summary><b>数据口径</b></summary>
@@ -77,13 +78,29 @@ v4 在北京时间 `09:00–12:00`、`14:00–18:00` 使用 `v4PeakPrices`，其
 
 ### 历史账单
 
-DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
+DeepSeek 公开余额 API 不返回历史总充值。如需账务口径，有三种方式：
+
+**方式一：账单自动获取（推荐）**
+
+1. 点击 composer 底部统计栏打开详情卡，展开「账单自动获取」。
+2. 按「如何获取 userToken」三步指引：登录平台 → 控制台执行
+   `copy(localStorage.userToken)` → 回到卡片粘贴并点「保存」。
+3. 保存时插件会先验证一次拉取，通过后将 token 写入本机凭证文件
+   `~/.dsh/.credentials.yaml`（权限 0600），之后按
+   `invoiceRefreshIntervalMs`（默认 6 小时）自动刷新，重启 dsh web 也自动恢复。
+4. token 失效时状态点变黄提示「已过期」，重新粘贴即可；点击「清除」可彻底移除。
+
+**方式二：手动粘贴 JSON（无需凭证）**
 
 1. 登录 `https://platform.deepseek.com/`。
 2. 在浏览器开发者工具中获取
    `https://platform.deepseek.com/auth-api/v0/users/get_all_invoice` 的 JSON 响应。
-3. 点击 composer 底部统计栏。
-4. 将完整 JSON 粘贴到详情卡顶部，点击“导入”。
+3. 点击统计栏，在「高级导入」中粘贴完整 JSON 并点击“导入”。
+
+**方式三：环境变量 / 配置**
+
+将 token 写入 Harness credentials 的 `DEEPSEEK_PLATFORM_TOKEN`
+（或 `cordis.patch.yml` 的 `platformToken`、同名环境变量），插件启动即自动开启。
 
 插件仅统计 `payment_order_status === "SUCCESS"` 的充值订单，并单独累加有效赠送订单。
 
@@ -106,14 +123,18 @@ DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
 <details>
 <summary><b>隐私与存储</b></summary>
 
-- 插件不会请求 `get_all_invoice`，也不会保存 DeepSeek Platform Cookie。
-- 粘贴的原始 JSON 只在当前页面内存中解析，导入成功后立即清空。
-- 仅将历史充值、历史赠送、订单数、币种和导入时间保存到当前浏览器的 `localStorage`。
-- 订单号、支付渠道和时间明细不会持久化。
-- 清理该站点的浏览器数据后，需要重新导入账单。
+- 默认（未提供 token 时）插件不会请求 `get_all_invoice`，也不会保存任何 DeepSeek Platform 凭证。
+- 仅当你显式粘贴 `userToken` 并点击保存后，插件才会以该 token 请求账单接口，并把 token
+  写入本机 Harness 凭证文件 `~/.dsh/.credentials.yaml`（权限 0600，由 Harness credentials
+  provider 托管写入）。点击「清除」即从该文件移除。
+- 不接受、不保存 DeepSeek Platform Cookie；token 只保存在你本机，不会发送到除
+  `platform.deepseek.com` 之外的任何地址。
+- 手动粘贴的原始 JSON 只在内存中解析；浏览器侧的 localStorage 兜底汇总仅包含历史充值、
+  历史赠送、订单数、币种和导入时间。订单号、支付渠道和时间明细不会持久化。
+- 在 DeepSeek 平台退出登录即可使已保存的 token 立即失效。
 
-`get_all_invoice` 属于 DeepSeek Platform 的登录态私有接口，响应结构可能变化。请不要向他人分享 Cookie、
-Authorization header 或包含订单明细的原始 JSON。
+`get_all_invoice` 属于 DeepSeek Platform 的登录态私有接口，响应结构可能变化。请不要向他人分享
+userToken、Cookie 或包含订单明细的原始 JSON。
 
 </details>
 
@@ -141,7 +162,7 @@ npx @deepseek-ai/dsh web
 
 源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
 
-也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.4.tgz`，再按下方 tarball 方式安装。
+也可以从 GitHub Release 下载 `dsh-balance-stats-0.2.0.tgz`，再按下方 tarball 方式安装。
 
 <details>
 <summary><b>pnpm 前置准备</b></summary>
@@ -192,7 +213,7 @@ npm pack
 安装：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.4.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.2.0.tgz
 npx @deepseek-ai/dsh web
 ```
 
@@ -221,6 +242,10 @@ GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句
     clientPollIntervalMs: 30000
     timeoutMs: 8000
     currency: CNY
+    platformToken: ''
+    platformTokenRef: DEEPSEEK_PLATFORM_TOKEN
+    invoiceRefreshIntervalMs: 21600000
+    platformBaseUrl: https://platform.deepseek.com
     prices:
       deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
       deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
@@ -235,7 +260,14 @@ GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句
     defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
 ```
 
-优先使用 `apiKeyRef` 引用 Harness credentials。不要在要分享的 `cordis.patch.yml` 中写入真实 API Key。
+优先使用 `apiKeyRef` / `platformTokenRef` 引用 Harness credentials。不要在要分享的 `cordis.patch.yml` 中写入真实 API Key 或平台 token。
+
+账单自动获取相关键：
+
+- `platformToken`：直接写入的平台 token（明文，不推荐；推荐留空走 UI 保存或 credentials）
+- `platformTokenRef`：凭证引用名（默认 `DEEPSEEK_PLATFORM_TOKEN`；UI 保存即写入该引用对应的凭证文档条目）
+- `invoiceRefreshIntervalMs`：账单自动刷新间隔，默认 21600000（6 小时），最小 600000
+- `platformBaseUrl`：DeepSeek 平台地址，一般无需修改
 
 </details>
 
@@ -276,7 +308,8 @@ curl http://127.0.0.1:3080/plugins/dsh-balance-stats/client.js
 
 - Harness 本地花费是估算值，不等于 DeepSeek 官方账单。
 - 历史账单汇总依赖非公开 `get_all_invoice` 响应结构。
-- 账单汇总按浏览器存储，不在不同浏览器或设备之间同步。
+- 平台 `userToken` 在你退出平台登录后即失效，重新粘贴即可恢复自动获取。
+- 手动 JSON 汇总按浏览器存储，不在不同浏览器或设备之间同步（自动获取的汇总保存在服务端）。
 - 余额、账单和估算价格币种必须一致。
 - 上游 DSH 客户端槽位或 projection API 变更后，插件可能需要同步适配。
 

@@ -42,8 +42,9 @@ npx @deepseek-ai/dsh web
 - **This session**: estimates the active conversation cost in real time through the composer-scoped `balanceStatsSessionCost` projection.
 - **Total spent**: uses an accounting-based percentage after an invoice import; otherwise falls back to the Harness local estimate.
 - **Details card**: shows spend today, over the last 7/30 days, per-model spend, token usage, and update time.
-- **JSON invoice import**: accepts a pasted `get_all_invoice` JSON response to calculate historical top-ups and accounting-based total spend. Importing force-refreshes the balance, so every figure updates at once.
-- **Caching and resilience**: retains the last successful balance when a request fails and refreshes server/client data on configurable intervals. The refresh button in the stats bar immediately re-fetches the balance from DeepSeek.
+- **Auto invoice import (optional)**: paste your platform `userToken` once in the details card and the server re-fetches invoices on a schedule; the token persists to the local credentials file (mode 0600), survives restarts, and clears with one click.
+- **JSON invoice import (fallback)**: without a token, paste a `get_all_invoice` JSON response for a one-shot import. Importing force-refreshes the balance, so every figure updates at once.
+- **Caching and resilience**: retains the last successful balance/invoice when a request fails (stale-while-error) and refreshes server/client data on configurable intervals. The refresh button in the stats bar immediately re-fetches from DeepSeek.
 
 <details>
 <summary><b>How figures are calculated</b></summary>
@@ -76,12 +77,31 @@ price maps are configurable.
 
 ### Historical invoices
 
-The public DeepSeek balance API does not return historical top-ups. To enable accounting-based figures:
+The public DeepSeek balance API does not return historical top-ups. To enable accounting-based figures, pick one of three ways:
+
+**Option 1 — auto import (recommended)**
+
+1. Click the stats bar to open the details card and expand "Auto invoice import".
+2. Follow the 3-step guide: sign in to the platform → run `copy(localStorage.userToken)`
+   in the console → come back, paste it, and press Save.
+3. Saving verifies the token with one live fetch, then persists it to the local
+   credentials file `~/.dsh/.credentials.yaml` (mode 0600). The plugin re-fetches
+   invoices every `invoiceRefreshIntervalMs` (default 6 hours) and restores the
+   token automatically after restarting dsh web.
+4. An expired session turns the status dot amber ("Expired"); paste a fresh token
+   to resume. "Clear" removes everything again.
+
+**Option 2 — manual JSON paste (no token)**
 
 1. Sign in to `https://platform.deepseek.com/`.
 2. Use browser developer tools to copy the JSON response from `https://platform.deepseek.com/auth-api/v0/users/get_all_invoice`.
-3. Click the statistics bar below the composer.
-4. Paste the complete JSON into the field at the top of the details card and click Import.
+3. Open the details card, expand "Advanced", paste the complete JSON, and click Import.
+
+**Option 3 — environment / config**
+
+Store the token under the Harness credential `DEEPSEEK_PLATFORM_TOKEN`
+(or `platformToken` in `cordis.patch.yml`, or an env var of that name); auto
+import starts on launch.
 
 Only top-up orders where `payment_order_status === "SUCCESS"` are counted. Valid grant orders are accumulated separately.
 
@@ -104,13 +124,13 @@ Total spent = Harness local estimated spend
 <details>
 <summary><b>Privacy and storage</b></summary>
 
-- The plugin never requests `get_all_invoice` or stores DeepSeek Platform cookies.
-- Pasted JSON is parsed only in the current page's memory and cleared immediately after a successful import.
-- Only aggregate values—historical top-ups, grants, order count, currency, and import time—are saved in the current browser's `localStorage`.
-- Order IDs, payment channels, and transaction details are not persisted.
-- Clearing site data requires you to import the invoice summary again.
+- By default (no token provided), the plugin never requests `get_all_invoice` and stores no DeepSeek Platform credentials.
+- Only when you explicitly paste a `userToken` and press Save does the plugin call the invoice endpoint with it and write the token to the local Harness credentials file `~/.dsh/.credentials.yaml` (mode 0600, managed by the Harness credentials provider). "Clear" in the card removes it again.
+- No DeepSeek Platform cookies are accepted or stored; the token never leaves your machine except to `platform.deepseek.com`.
+- Manually pasted JSON is parsed only in memory. The browser-side `localStorage` fallback summary keeps only aggregates: historical top-ups, grants, order count, currency, and import time. Order IDs, payment channels, and transaction details are not persisted.
+- Signing out of the DeepSeek Platform immediately invalidates any saved token.
 
-`get_all_invoice` is a private, authenticated DeepSeek Platform endpoint and its response format may change. Never share cookies, authorization headers, or raw JSON containing order details.
+`get_all_invoice` is a private, authenticated DeepSeek Platform endpoint and its response format may change. Never share your userToken, cookies, authorization headers, or raw JSON containing order details.
 
 </details>
 
@@ -138,7 +158,7 @@ npx @deepseek-ai/dsh web
 
 Repository: <https://github.com/pangzi499/dsh-balance-stats>
 
-You can also download `dsh-balance-stats-0.1.4.tgz` from the GitHub Release and install it as a tarball.
+You can also download `dsh-balance-stats-0.2.0.tgz` from the GitHub Release and install it as a tarball.
 
 <details>
 <summary><b>pnpm prerequisite</b></summary>
@@ -189,7 +209,7 @@ npm pack
 Install:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.4.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.2.0.tgz
 npx @deepseek-ai/dsh web
 ```
 
@@ -218,6 +238,10 @@ Override plugin configuration in `$DSH_HOME/profiles/web/cordis.patch.yml`. Conf
     clientPollIntervalMs: 30000
     timeoutMs: 8000
     currency: CNY
+    platformToken: ''
+    platformTokenRef: DEEPSEEK_PLATFORM_TOKEN
+    invoiceRefreshIntervalMs: 21600000
+    platformBaseUrl: https://platform.deepseek.com
     prices:
       deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
       deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
@@ -232,7 +256,14 @@ Override plugin configuration in `$DSH_HOME/profiles/web/cordis.patch.yml`. Conf
     defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
 ```
 
-Prefer `apiKeyRef` so the plugin reuses Harness credentials. Never put a real API key in a `cordis.patch.yml` file that you plan to share.
+Prefer `apiKeyRef` / `platformTokenRef` so the plugin reuses Harness credentials. Never put a real API key or platform token in a `cordis.patch.yml` file that you plan to share.
+
+Auto import keys:
+
+- `platformToken`: literal platform token (plaintext; not recommended — prefer saving via the UI or credentials)
+- `platformTokenRef`: credential reference name (default `DEEPSEEK_PLATFORM_TOKEN`; saving in the UI writes this credential entry)
+- `invoiceRefreshIntervalMs`: invoice refresh interval, default 21600000 (6 h), minimum 600000
+- `platformBaseUrl`: DeepSeek Platform base URL; normally leave as default
 
 </details>
 
@@ -273,7 +304,8 @@ Example statistics response (amounts are illustrative):
 
 - Harness local spend is an estimate, not an official DeepSeek invoice.
 - Historical invoice summaries depend on the private `get_all_invoice` response format.
-- Invoice summaries are browser-local and do not sync across browsers or devices.
+- The platform `userToken` expires when you sign out of the DeepSeek Platform; paste a fresh one to resume auto import.
+- Manual JSON summaries are browser-local and do not sync across browsers or devices (auto-imported summaries live on the server side).
 - Balance, invoice, and estimated-price currencies must match.
 - Upstream changes to DSH client slots or projection APIs may require plugin updates.
 

@@ -50,13 +50,50 @@ window.__ModuleLoader__.load({
 				".dshbs_row+.dshbs_row{margin-top:2px}",
 				".dshbs_muted{color:var(--dsw-alias-label-secondary)}",
 				".dshbs_note{margin-top:8px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.5}",
-				".dshbs_import{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1)}",
+				".dshbs_import{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:8px;padding-top:8px}",
 				".dshbs_import_text{grid-column:1/-1;box-sizing:border-box;width:100%;min-height:64px;resize:vertical;border:1px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:11px/1.4 ui-monospace,SFMono-Regular,monospace;padding:6px 8px}",
 				".dshbs_import_btn{border:1px solid var(--dsw-alias-border-l1);border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;padding:4px 8px;cursor:pointer}",
 				".dshbs_import_btn:hover{background:var(--dsw-alias-interactive-bg-hover)}",
 				".dshbs_import_status{color:var(--dsw-alias-label-secondary);font-size:11px;text-align:right}",
 				".dshbs_err{color:var(--dsw-alias-state-error-primary)}",
-				".dshbs_loading{opacity:.55}"
+				".dshbs_loading{opacity:.55}",
+				".dshbs_sec{margin-top:8px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:6px}",
+				".dshbs_sec_head{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;padding:2px;border-radius:6px;font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary);letter-spacing:.02em}",
+				".dshbs_sec_head:hover{background:var(--dsw-alias-interactive-bg-hover)}",
+				".dshbs_sec_head_right{display:flex;align-items:center;gap:6px;font-weight:400}",
+				".dshbs_chev{transition:transform .15s ease;color:var(--dsw-alias-label-secondary);font-size:10px}",
+				".dshbs_sec.dshbs_open .dshbs_chev{transform:rotate(90deg)}",
+				".dshbs_sec_body{display:none;padding:4px 2px 2px}",
+				".dshbs_sec.dshbs_open .dshbs_sec_body{display:block}",
+				".dshbs_dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;background:var(--dsw-alias-label-secondary)}",
+				".dshbs_dot_ok{background:var(--dsw-alias-state-success-primary,#46a758)}",
+				".dshbs_dot_warn{background:var(--dsw-alias-state-warning-primary,#f5a623)}",
+				".dshbs_dot_err{background:var(--dsw-alias-state-error-primary)}",
+				".dshbs_warn{color:var(--dsw-alias-state-warning-primary,#f5a623)}",
+				".dshbs_token_line{display:flex;align-items:center;gap:6px;margin-top:6px}",
+				".dshbs_token_input{flex:1 1 auto;width:auto;min-width:0;border:1px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:11px/1.4 ui-monospace,SFMono-Regular,monospace;padding:6px 8px}",
+				".dshbs_token_input:focus{outline:none;border-color:var(--dsw-alias-state-business-primary)}",
+				".dshbs_token_input.dshbs_invalid{border-color:var(--dsw-alias-state-error-primary)}",
+				".dshbs_icon_btn,.dshbs_btn{flex:none;border:1px solid var(--dsw-alias-border-l1);border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:4px 8px;cursor:pointer;white-space:nowrap}",
+				".dshbs_icon_btn:hover,.dshbs_btn:hover{background:var(--dsw-alias-interactive-bg-hover)}",
+				".dshbs_btn:disabled{opacity:.45;cursor:default}",
+				".dshbs_btn_primary{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}",
+				".dshbs_btn_armed{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}",
+				".dshbs_saved_line{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;color:var(--dsw-alias-label-secondary);font-size:11px}",
+				".dshbs_saved_line code{font-family:ui-monospace,SFMono-Regular,monospace;color:var(--dsw-alias-label-primary)}",
+				".dshbs_hint{margin-top:6px;color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.5}",
+				".dshbs_help{margin-top:6px}",
+				".dshbs_help summary{cursor:pointer;user-select:none;color:var(--dsw-alias-label-secondary);font-size:11px;list-style:none}",
+				".dshbs_help summary::-webkit-details-marker{display:none}",
+				".dshbs_help summary::before{content:'▸ '}",
+				".dshbs_help[open] summary::before{content:'⌄ '}",
+				".dshbs_help_steps{margin:6px 0 0;padding-left:18px;color:var(--dsw-alias-label-secondary);font-size:11px}",
+				".dshbs_help_steps li{margin-bottom:6px}",
+				".dshbs_cmd{display:inline-block;font:11px ui-monospace,SFMono-Regular,monospace;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:2px 8px;margin:3px 0;cursor:pointer;color:var(--dsw-alias-label-primary)}",
+				".dshbs_cmd:hover{border-color:var(--dsw-alias-state-business-primary)}",
+				".dshbs_badge{font-size:10px;font-weight:400;padding:1px 7px;border-radius:99px;border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}",
+				".dshbs_badge_auto{border-color:var(--dsw-alias-state-success-primary,#46a758);color:var(--dsw-alias-state-success-primary,#46a758)}",
+				".dshbs_monospace{font-family:ui-monospace,SFMono-Regular,monospace}"
 			].join("\n");
 			document.head.appendChild(tag);
 		}
@@ -82,6 +119,8 @@ window.__ModuleLoader__.load({
 		}
 
 		const INVOICE_STORAGE_KEY = "dsh-balance-stats/invoice-summary/v1";
+		const INV_SECTION_OPEN_KEY = "dsh-balance-stats/invoice-section-open";
+		const INV_ATTENTION_STATES = new Set(["empty", "session-expired", "error"]);
 		function loadInvoiceSummary() {
 			try {
 				const value = JSON.parse(localStorage.getItem(INVOICE_STORAGE_KEY) ?? "null");
@@ -214,6 +253,23 @@ window.__ModuleLoader__.load({
 			},
 			refresh
 		};
+
+		/** 导入端点: 保存 token / 清除 / 手动 JSON。返回服务端 JSON 响应。 */
+		async function postImport(payload) {
+			const res = await fetch("/balance-stats", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify(payload)
+			});
+			let data = null;
+			try {
+				data = await res.json();
+			} catch {
+				/* 非 JSON 响应按 HTTP 状态处理 */
+			}
+			if (!res.ok) throw new Error(data?.error ?? ("HTTP " + res.status));
+			return data;
+		}
 		//#endregion
 
 		//#region locale
@@ -243,6 +299,42 @@ window.__ModuleLoader__.load({
 			"billing.imported": "已导入 {n} 笔充值",
 			"billing.invalid": "JSON 格式不正确",
 			"billing.currencyMismatch": "账单币种与余额不一致",
+			"invoice.auto": "账单自动获取",
+			"invoice.state.ok": "已开启",
+			"invoice.state.empty": "未配置",
+			"invoice.state.session-expired": "已过期",
+			"invoice.state.error": "错误",
+			"invoice.updated": "上次更新 {time}",
+			"invoice.every": "每 {interval} 自动",
+			"invoice.token": "凭证",
+			"invoice.source.file": "已持久化",
+			"invoice.source.memory": "内存",
+			"invoice.source.env": "环境变量，只读",
+			"invoice.source.config": "配置文件",
+			"invoice.change": "更换",
+			"invoice.clear": "清除",
+			"invoice.clearConfirm": "确认清除?",
+			"invoice.placeholder": "粘贴 userToken…",
+			"invoice.show": "显示/隐藏",
+			"invoice.save": "保存",
+			"invoice.saving": "验证中",
+			"invoice.invalidToken": "不像有效的 token：长度需 ≥ 20 且不含空白",
+			"invoice.invalid": "token 无效或登录已过期，请重新获取并粘贴",
+			"invoice.help.title": "如何获取 userToken？（3 步）",
+			"invoice.help.open": "打开 DeepSeek 平台",
+			"invoice.help.openSuffix": "并登录",
+			"invoice.help.step2": "在平台页面按 F12 打开控制台，粘贴这条命令并回车：",
+			"invoice.help.copied": "已复制 ✓",
+			"invoice.help.copyFail": "复制失败，请手动输入",
+			"invoice.help.step3": "回到这里粘贴，点「保存」——保存时会自动验证。",
+			"invoice.help.alt": "也可在 F12 → Application → 本地存储 → userToken 手动复制。",
+			"invoice.hint.persisted": "保存后写入本机凭证文件（权限 0600），重启自动恢复；可随时一键清除。",
+			"invoice.hint.memory": "仅保存在服务内存，重启后需重填。",
+			"invoice.hint.readonly": "由环境变量提供，插件无法修改；请在 shell 配置中更新该变量并重启。",
+			"invoice.hint.config": "由插件配置提供；请在 cordis.patch.yml 中修改 platformToken。",
+			"invoice.source.auto": "来源：自动获取",
+			"invoice.source.manual": "来源：手动导入",
+			"billing.advanced": "高级导入（JSON 粘贴，无需凭证）",
 			"title.spend": "花费",
 			"spend.total": "总花费(累计)",
 			"spend.session": "当前会话",
@@ -285,6 +377,42 @@ window.__ModuleLoader__.load({
 			"billing.imported": "Imported {n} payments",
 			"billing.invalid": "Invalid invoice JSON",
 			"billing.currencyMismatch": "Invoice currency does not match balance",
+			"invoice.auto": "Auto invoice import",
+			"invoice.state.ok": "On",
+			"invoice.state.empty": "Not set up",
+			"invoice.state.session-expired": "Expired",
+			"invoice.state.error": "Error",
+			"invoice.updated": "Updated {time}",
+			"invoice.every": "auto every {interval}",
+			"invoice.token": "Token",
+			"invoice.source.file": "persisted",
+			"invoice.source.memory": "in memory",
+			"invoice.source.env": "env var, read-only",
+			"invoice.source.config": "config file",
+			"invoice.change": "Change",
+			"invoice.clear": "Clear",
+			"invoice.clearConfirm": "Confirm clear?",
+			"invoice.placeholder": "Paste userToken…",
+			"invoice.show": "Show/hide",
+			"invoice.save": "Save",
+			"invoice.saving": "Verifying",
+			"invoice.invalidToken": "Does not look like a valid token: at least 20 chars, no whitespace",
+			"invoice.invalid": "Token is invalid or the session has expired. Paste a fresh one.",
+			"invoice.help.title": "How to get userToken? (3 steps)",
+			"invoice.help.open": "Open DeepSeek Platform",
+			"invoice.help.openSuffix": "and sign in",
+			"invoice.help.step2": "Press F12 on that page to open the console, paste this command and press Enter:",
+			"invoice.help.copied": "Copied ✓",
+			"invoice.help.copyFail": "Copy failed, type it manually",
+			"invoice.help.step3": "Come back here, paste it and press Save — saving verifies automatically.",
+			"invoice.help.alt": "Alternatively copy userToken under F12 → Application → Local Storage.",
+			"invoice.hint.persisted": "Saved to the local credentials file (mode 0600); survives restarts. Clear anytime with one click.",
+			"invoice.hint.memory": "Kept in server memory only; re-paste after restarting dsh web.",
+			"invoice.hint.readonly": "Provided by an environment variable the plugin cannot modify; update your shell config and restart.",
+			"invoice.hint.config": "Provided by plugin config; change platformToken in cordis.patch.yml.",
+			"invoice.source.auto": "Source: auto import",
+			"invoice.source.manual": "Source: manual import",
+			"billing.advanced": "Advanced (paste invoice JSON, no token needed)",
 			"title.spend": "Spend",
 			"spend.total": "Total (all-time)",
 			"spend.session": "This session",
@@ -321,6 +449,19 @@ window.__ModuleLoader__.load({
 			const [refreshing, setRefreshing] = react.useState(false);
 			const rootRef = react.useRef(null);
 
+			// 自动获取区状态
+			const invoiceInfo = stats.status === "ok" ? stats.payload?.invoice ?? null : null;
+			const invState = invoiceInfo !== null ? invoiceInfo.state : "empty";
+			const invAttention = INV_ATTENTION_STATES.has(invState) || invoiceInfo === null;
+			const [invOpenOverride, setInvOpenOverride] = react.useState(null); // null=跟随默认/记忆
+			const [invMode, setInvMode] = react.useState("view"); // view | edit
+			const [invToken, setInvToken] = react.useState("");
+			const [invShow, setInvShow] = react.useState(false);
+			const [invBusy, setInvBusy] = react.useState(false);
+			const [invError, setInvError] = react.useState(null);
+			const [clearArmed, setClearArmed] = react.useState(false);
+			const tokenInputRef = react.useRef(null);
+
 			const info = stats.status === "ok" ? stats.payload : null;
 			const loading = stats.status === "loading";
 			const balances = info !== null && Array.isArray(info.balances)
@@ -341,7 +482,10 @@ window.__ModuleLoader__.load({
 			const day7 = Number.isFinite(statsBlock.day7) ? statsBlock.day7 : null;
 			const day30 = Number.isFinite(statsBlock.day30) ? statsBlock.day30 : null;
 			const sessionC = sessionCostValue !== null && sessionCostValue !== undefined && Number.isFinite(sessionCostValue.cost) ? sessionCostValue.cost : null;
-			const accounting = invoiceSummary !== null ? calculateAccountingUsage(invoiceSummary, balanceTotal) : null;
+			// 服务端自动获取的汇总优先; localStorage 手动导入作为离线兜底
+			const serverSummary = invoiceInfo !== null && invoiceInfo.summary !== null && typeof invoiceInfo.summary === "object" ? invoiceInfo.summary : null;
+			const effectiveSummary = serverSummary ?? invoiceSummary;
+			const accounting = effectiveSummary !== null ? calculateAccountingUsage(effectiveSummary, balanceTotal) : null;
 			const billingSpent = accounting?.spent ?? null;
 			const percent = accounting?.percent ?? localPercent;
 			const spinning = loading || refreshing;
@@ -362,6 +506,81 @@ window.__ModuleLoader__.load({
 				} catch (error) {
 					setInvoiceStatus({ ok: false, reason: error instanceof Error ? error.message : "invalid-structure" });
 				}
+			};
+
+			// 保存 token: 客户端预检 → POST → 服务端验证并持久化 → 强刷快照
+			const saveToken = async () => {
+				const value = invToken.trim();
+				if (value.length < 20 || /\s/.test(value)) {
+					setInvError(t("invoice.invalidToken"));
+					return;
+				}
+				setInvBusy(true);
+				setInvError(null);
+				try {
+					const result = await postImport({ userToken: value });
+					if (result?.ok !== true) {
+						setInvError(result?.error === "session-expired" ? t("invoice.invalid") : (result?.error ?? t("invoice.invalid")));
+						return;
+					}
+					setInvToken("");
+					setInvMode("view");
+					setClearArmed(false);
+					setRefreshing(true);
+					await statsStore.refresh(true);
+				} catch (error) {
+					setInvError(error instanceof Error ? error.message : String(error));
+				} finally {
+					setInvBusy(false);
+					setRefreshing(false);
+				}
+			};
+
+			// 清除: 两段确认; 服务端丢弃内存 token + 汇总, 并尽量 unset 凭证文档
+			const clearToken = async () => {
+				if (!clearArmed) {
+					setClearArmed(true);
+					return;
+				}
+				setClearArmed(false);
+				setInvBusy(true);
+				try {
+					await postImport({ clear: true });
+					setInvMode("edit");
+					setRefreshing(true);
+					await statsStore.refresh(true);
+				} catch (error) {
+					setInvError(error instanceof Error ? error.message : String(error));
+				} finally {
+					setInvBusy(false);
+					setRefreshing(false);
+				}
+			};
+
+			const sectionOpen = invOpenOverride !== null
+				? invOpenOverride
+				: invAttention
+					? true
+					: (() => { try { return localStorage.getItem(INV_SECTION_OPEN_KEY) !== "0"; } catch { return true; } })();
+			const toggleSection = () => {
+				const willOpen = !sectionOpen;
+				setInvOpenOverride(willOpen);
+				if (!invAttention) {
+					try { localStorage.setItem(INV_SECTION_OPEN_KEY, willOpen ? "1" : "0"); } catch { /* 忽略 */ }
+				}
+			};
+
+			const copyHelpCommand = async (event) => {
+				event.stopPropagation();
+				const el = event.currentTarget;
+				const command = "copy(localStorage.userToken)";
+				try {
+					await navigator.clipboard.writeText(command);
+					el.textContent = t("invoice.help.copied");
+				} catch {
+					el.textContent = t("invoice.help.copyFail");
+				}
+				setTimeout(() => { el.textContent = command; }, 1500);
 			};
 
 			const toggleCard = () => {
@@ -393,6 +612,16 @@ window.__ModuleLoader__.load({
 					document.removeEventListener("pointerdown", onPointer);
 				};
 			}, [open]);
+
+			// 需要处理(未配置/过期/错误)时自动展开并聚焦输入框
+			react.useEffect(() => {
+				if (!open || invoiceInfo === null || invState === "ok") return;
+				if (invMode !== "view") return;
+				setInvMode("edit");
+			}, [open, invState, invoiceInfo]);
+			react.useEffect(() => {
+				if (open && invMode === "edit") tokenInputRef.current?.focus?.();
+			}, [open, invMode]);
 
 			const valueLine = (label, value, cls) => (0, react_jsx_runtime.jsxs)("span", {
 				className: "dshbs_main",
@@ -449,40 +678,226 @@ window.__ModuleLoader__.load({
 					row(t("balance.total"), (0, react_jsx_runtime.jsx)("span", { className: "dshbs_err", children: info !== null && info.error === "api-key-missing" ? t("missingKey") : t("unavailable") }));
 				}
 
+				// —— 账单自动获取区(可折叠; 服务端无 invoice 块时整体隐藏) ——
+				if (invoiceInfo !== null) {
+					const dotCls = invState === "ok" ? " dshbs_dot_ok"
+						: invState === "session-expired" ? " dshbs_dot_warn"
+							: invState === "error" ? " dshbs_dot_err" : "";
+					const invSourceLabel = invoiceInfo.source != null && invoiceInfo.source !== ""
+						? t("invoice.source." + invoiceInfo.source)
+						: null;
+					const invReadonly = invoiceInfo.source === "env" || invoiceInfo.writable === false;
+					const editingInv = invMode === "edit" || (invState !== "ok");
+					const invExpired = invState === "session-expired";
+					const invErrored = invState === "error";
+
+					const hintText = editingInv
+						? t("invoice.hint.persisted")
+						: invoiceInfo.source === "memory" ? t("invoice.hint.memory")
+							: invoiceInfo.source === "env" ? t("invoice.hint.readonly")
+								: invoiceInfo.source === "config" ? t("invoice.hint.config")
+									: t("invoice.hint.persisted");
+
+					const invBody = [];
+					if (!editingInv) {
+						invBody.push((0, react_jsx_runtime.jsx)("div", {
+							className: "dshbs_saved_line",
+							children: [
+								(0, react_jsx_runtime.jsxs)("span", {
+									children: [
+										t("invoice.token") + " ",
+										(0, react_jsx_runtime.jsx)("code", { children: "••••••••••" + (invoiceInfo.tokenHint ?? "") }),
+										invSourceLabel !== null ? "（" + invSourceLabel + "）" : ""
+									]
+								}),
+								!invReadonly ? (0, react_jsx_runtime.jsxs)("span", {
+									children: [
+										(0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: "dshbs_icon_btn",
+											onClick: () => { setInvMode("edit"); setClearArmed(false); },
+											children: t("invoice.change")
+										}),
+										(0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: "dshbs_icon_btn" + (clearArmed ? " dshbs_btn_armed" : ""),
+											onClick: clearToken,
+											children: clearArmed ? t("invoice.clearConfirm") : t("invoice.clear")
+										})
+									]
+								}) : null
+							]
+						}, "saved"));
+						invBody.push((0, react_jsx_runtime.jsx)("div", {
+							className: "dshbs_muted",
+							style: { fontSize: 11, marginTop: 2 },
+							children: invoiceInfo.fetchedAt > 0 ? t("invoice.updated", { time: formatClock(invoiceInfo.fetchedAt) }) : ""
+						}, "upd"));
+					} else {
+						if (invExpired) {
+							invBody.push((0, react_jsx_runtime.jsx)("div", { className: "dshbs_warn", style: { marginTop: 6 }, children: t("invoice.invalid") }, "exp"));
+						} else if (invErrored && invoiceInfo.error) {
+							invBody.push((0, react_jsx_runtime.jsx)("div", { className: "dshbs_err", style: { marginTop: 6 }, title: invoiceInfo.error, children: invoiceInfo.error }, "err"));
+						}
+						invBody.push((0, react_jsx_runtime.jsxs)("div", {
+							className: "dshbs_token_line",
+							children: [
+								(0, react_jsx_runtime.jsx)("input", {
+									ref: tokenInputRef,
+									className: "dshbs_token_input" + (invError !== null ? " dshbs_invalid" : ""),
+									type: invShow ? "text" : "password",
+									spellCheck: false,
+									autoComplete: "off",
+									placeholder: t("invoice.placeholder"),
+									value: invToken,
+									disabled: invBusy,
+									onChange: (event) => { setInvToken(event.target.value); if (invError !== null) setInvError(null); },
+									onKeyDown: (event) => { if (event.key === "Enter") saveToken(); },
+									onClick: (event) => event.stopPropagation()
+								}),
+								(0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: "dshbs_icon_btn",
+									title: t("invoice.show"),
+									disabled: invBusy,
+									onClick: () => setInvShow((prev) => !prev),
+									children: invShow ? "🙈" : "👁"
+								}),
+								(0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: "dshbs_btn dshbs_btn_primary",
+									disabled: invBusy,
+									onClick: saveToken,
+									children: invBusy ? (0, react_jsx_runtime.jsx)("span", { className: "dshbs_spin", children: "◌" }) : t("invoice.save")
+								})
+							]
+						}, "line"));
+					}
+					if (invError !== null) {
+						invBody.push((0, react_jsx_runtime.jsx)("div", { className: "dshbs_err", style: { marginTop: 4 }, children: invError }, "invErr"));
+					}
+
+					invBody.push((0, react_jsx_runtime.jsxs)("details", {
+						className: "dshbs_help",
+						onClick: (event) => event.stopPropagation(),
+						children: [
+							(0, react_jsx_runtime.jsx)("summary", { children: t("invoice.help.title") }),
+							(0, react_jsx_runtime.jsxs)("ol", {
+								className: "dshbs_help_steps",
+								children: [
+									(0, react_jsx_runtime.jsxs)("li", {
+										children: [
+											(0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: "dshbs_btn",
+												onClick: () => window.open("https://platform.deepseek.com/", "_blank"),
+												children: t("invoice.help.open")
+											}),
+											" " + t("invoice.help.openSuffix")
+										]
+									}),
+									(0, react_jsx_runtime.jsxs)("li", {
+										children: [
+											t("invoice.help.step2"),
+											(0, react_jsx_runtime.jsx)("br", {}),
+											(0, react_jsx_runtime.jsx)("span", {
+												className: "dshbs_cmd",
+												title: t("invoice.help.step2"),
+												onClick: copyHelpCommand,
+												children: "copy(localStorage.userToken)"
+											})
+										]
+									}),
+									(0, react_jsx_runtime.jsx)("li", { children: t("invoice.help.step3") })
+								]
+							}),
+							(0, react_jsx_runtime.jsx)("div", { className: "dshbs_hint", children: t("invoice.help.alt") })
+						]
+					}, "help"));
+
+					invBody.push((0, react_jsx_runtime.jsx)("div", { className: "dshbs_hint", children: hintText }, "hint"));
+
+					rows.push((0, react_jsx_runtime.jsxs)("div", {
+						className: "dshbs_sec" + (sectionOpen ? " dshbs_open" : ""),
+						children: [
+							(0, react_jsx_runtime.jsxs)("div", {
+								className: "dshbs_sec_head",
+								role: "button",
+								tabIndex: 0,
+								onClick: toggleSection,
+								onKeyDown: (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleSection(); } },
+								children: [
+									(0, react_jsx_runtime.jsx)("span", { children: t("invoice.auto") }),
+									(0, react_jsx_runtime.jsxs)("span", {
+										className: "dshbs_sec_head_right",
+										children: [
+											(0, react_jsx_runtime.jsxs)("span", {
+												className: dotCls.includes("warn") ? "dshbs_warn" : dotCls.includes("err") ? "dshbs_err" : dotCls.includes("ok") ? "" : "dshbs_muted",
+												children: [
+													(0, react_jsx_runtime.jsx)("span", { className: "dshbs_dot" + dotCls }),
+													t("invoice.state." + invState)
+												]
+											}),
+											(0, react_jsx_runtime.jsx)("span", { className: "dshbs_chev", children: "▶" })
+										]
+									})
+								]
+							}),
+							(0, react_jsx_runtime.jsx)("div", { className: "dshbs_sec_body", children: invBody })
+						]
+					}, "autoImport"));
+				}
+
+				// —— 高级导入(JSON 粘贴兜底, 默认收起) ——
 				const statusText = invoiceStatus === null
 					? invoiceSummary === null ? "" : t("billing.imported", { n: invoiceSummary.paymentOrderCount })
 					: invoiceStatus.ok ? t("billing.imported", { n: invoiceStatus.count })
 						: invoiceStatus.reason === "currency-mismatch" ? t("billing.currencyMismatch") : t("billing.invalid");
-				rows.push((0, react_jsx_runtime.jsxs)("div", {
-					className: "dshbs_import",
-					children: [
-						(0, react_jsx_runtime.jsx)("textarea", {
-							className: "dshbs_import_text",
-							value: invoiceJson,
-							placeholder: t("billing.paste"),
-							onChange: (event) => setInvoiceJson(event.target.value),
-							onClick: (event) => event.stopPropagation()
-						}),
-						(0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: "dshbs_import_btn",
-							disabled: invoiceJson.trim() === "",
-							onClick: importInvoices,
-							children: t("billing.import")
-						}),
-						(0, react_jsx_runtime.jsx)("span", { className: invoiceStatus?.ok === false ? "dshbs_import_status dshbs_err" : "dshbs_import_status", children: statusText })
-					]
+				rows.push((0, react_jsx_runtime.jsx)("details", {
+					className: "dshbs_sec dshbs_help",
+					onClick: (event) => event.stopPropagation(),
+					children: (0, react_jsx_runtime.jsxs)("div", {
+						children: [
+							(0, react_jsx_runtime.jsx)("summary", { children: t("billing.advanced") }),
+							(0, react_jsx_runtime.jsxs)("div", {
+								className: "dshbs_import",
+								children: [
+									(0, react_jsx_runtime.jsx)("textarea", {
+										className: "dshbs_import_text",
+										value: invoiceJson,
+										placeholder: t("billing.paste"),
+										onChange: (event) => setInvoiceJson(event.target.value),
+										onClick: (event) => event.stopPropagation()
+									}),
+									(0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: "dshbs_import_btn",
+										disabled: invoiceJson.trim() === "",
+										onClick: importInvoices,
+										children: t("billing.import")
+									}),
+									(0, react_jsx_runtime.jsx)("span", { className: invoiceStatus?.ok === false ? "dshbs_import_status dshbs_err" : "dshbs_import_status", children: statusText })
+								]
+							})
+						]
+					})
 				}, "import"));
 
-				if (invoiceSummary !== null) {
-					rows.push((0, react_jsx_runtime.jsx)("h4", { children: t("title.billing") }, "billing"));
-					row(t("billing.recharge"), formatMoney(invoiceSummary.totalRecharge, currency));
-					row(t("billing.bonus"), formatMoney(invoiceSummary.totalBonus, currency));
+				const sourceBadge = serverSummary !== null
+					? (0, react_jsx_runtime.jsx)("span", { className: "dshbs_badge dshbs_badge_auto", children: t("invoice.source.auto") })
+					: invoiceSummary !== null
+						? (0, react_jsx_runtime.jsx)("span", { className: "dshbs_badge", children: t("invoice.source.manual") })
+						: null;
+
+				if (effectiveSummary !== null) {
+					rows.push((0, react_jsx_runtime.jsx)("h4", { children: sourceBadge !== null ? [t("title.billing"), " ", sourceBadge] : t("title.billing") }, "billing"));
+					row(t("billing.recharge"), formatMoney(effectiveSummary.totalRecharge, currency));
+					row(t("billing.bonus"), formatMoney(effectiveSummary.totalBonus, currency));
 					row(t("billing.spent"), billingSpent === null ? "—" : formatMoney(billingSpent, currency));
 				}
 
 				rows.push((0, react_jsx_runtime.jsx)("h4", { children: t("title.spend") }, "s"));
-				row(invoiceSummary !== null ? t("billing.localEstimate") : t("spend.total"), totalCost === null ? "—" : formatMoney(totalCost, currency));
+				row(effectiveSummary !== null ? t("billing.localEstimate") : t("spend.total"), totalCost === null ? "—" : formatMoney(totalCost, currency));
 				row(t("spend.session"), sessionC === null ? "—" : formatMoney(sessionC, currency));
 				row(t("spend.today"), today === null ? "—" : formatMoney(today, currency));
 				row(t("spend.day7"), day7 === null ? "—" : formatMoney(day7, currency));
