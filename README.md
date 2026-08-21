@@ -116,7 +116,7 @@ Total spent = Harness local estimated spend
 
 ## Requirements
 
-- Tested with DeepSeek Harness: `0.1.1-rc.1`
+- DeepSeek Harness: tested on `0.1.0-rc.6` through `0.1.1-rc.1`
 - Node.js: `>=22.19.0`
 - pnpm: must be available on `PATH` because Harness uses it to manage profile plugins (missing? see [Installation](#installation))
 - Tested environment: OrbStack Ubuntu with Node.js `24.19.0`

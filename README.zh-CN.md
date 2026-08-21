@@ -119,7 +119,7 @@ Authorization header 或包含订单明细的原始 JSON。
 
 ## 运行要求
 
-- 已验证 DeepSeek Harness：`0.1.1-rc.1`
+- DeepSeek Harness：已在 `0.1.0-rc.6` ～ `0.1.1-rc.1` 上验证
 - Node.js：`>=22.19.0`
 - pnpm：需要在 `PATH` 中可用（Harness 使用 pnpm 管理 profile 插件；缺失时见[安装](#安装)）
 - 已验证运行环境：OrbStack Ubuntu、Node.js `24.19.0`
