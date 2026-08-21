@@ -354,6 +354,11 @@ window.__ModuleLoader__.load({
 					setInvoiceSummary(summary);
 					setInvoiceStatus({ ok: true, count: summary.paymentOrderCount });
 					setInvoiceJson("");
+					// 导入只更新本地历史汇总; 余额/账务总消费依赖服务端快照,
+					// 这里强制刷新一次, 让它们立即基于最新余额计算(复用刷新按钮的旋转态)。
+					setRefreshing(true);
+					const refreshed = () => setRefreshing(false);
+					statsStore.refresh(true).then(refreshed, refreshed);
 				} catch (error) {
 					setInvoiceStatus({ ok: false, reason: error instanceof Error ? error.message : "invalid-structure" });
 				}
