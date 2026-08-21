@@ -30,42 +30,13 @@ npx @deepseek-ai/dsh web
 
 ## 界面预览
 
+**统计栏** —— 输入框下方的余额、本次会话与累计消耗读数：
+
 ![余额、本次会话与累计消耗主栏](images/dsh-balance-stats-overview.png)
 
+**详情卡** —— 点击统计栏打开：余额构成、历史账单、按模型花费、Token 用量与账单导入入口：
+
 ![余额与用量统计详情卡](images/dsh-balance-stats-details.png)
-
-> DeepSeek Harness 尚处于开发者预览阶段，插件所使用的槽位和客户端接口可能随上游版本变化。
-
-## 兼容性
-
-- 已验证 DeepSeek Harness：`0.1.0-rc.6`
-- Node.js：`>=22.19.0`
-- pnpm：需要在 `PATH` 中可用（Harness 使用 pnpm 管理 profile 插件）
-- 已验证运行环境：OrbStack Ubuntu、Node.js `24.19.0`
-
-这是 DeepSeek Harness 社区插件，不是 `@deepseek-ai` 官方插件。
-
-安装插件前，先检查 pnpm：
-
-```sh
-pnpm --version
-command -v pnpm
-```
-
-如果提示 `pnpm: command not found` 或没有输出，可通过 Corepack 安装：
-
-```sh
-corepack enable
-corepack prepare pnpm@10 --activate
-pnpm --version
-```
-
-如果当前 Node.js 环境没有 Corepack，可改用 npm：
-
-```sh
-npm install --global pnpm@10
-pnpm --version
-```
 
 ## 功能
 
@@ -73,7 +44,7 @@ pnpm --version
 - **本次会话**：通过 composer 作用域的 `balanceStatsSessionCost` projection 实时估算当前会话花费。
 - **累计消耗**：导入账单后优先显示账务口径百分比；未导入时回退到 Harness 本地估算。
 - **详情卡**：显示今天、最近 7/30 天花费、按模型分解、Token 用量和更新时间。
-- **JSON 账单导入**：直接粘贴 `get_all_invoice` 的 JSON 响应，计算历史充值与账务总消费。
+- **JSON 账单导入**：直接粘贴 `get_all_invoice` 的 JSON 响应，计算历史充值与账务总消费；导入后自动强制刷新余额，所有读数立即同步。
 - **容错与缓存**：余额请求失败时保留上次成功数据；服务端和客户端均按配置周期刷新。点击统计栏的刷新按钮可立即向 DeepSeek 重新拉取余额。
 
 ## 数据口径
@@ -140,7 +111,42 @@ DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
 `get_all_invoice` 属于 DeepSeek Platform 的登录态私有接口，响应结构可能变化。请不要向他人分享 Cookie、
 Authorization header 或包含订单明细的原始 JSON。
 
+## 运行要求
+
+- 已验证 DeepSeek Harness：`0.1.0-rc.6`
+- Node.js：`>=22.19.0`
+- pnpm：需要在 `PATH` 中可用（Harness 使用 pnpm 管理 profile 插件；缺失时见[安装](#安装)）
+- 已验证运行环境：OrbStack Ubuntu、Node.js `24.19.0`
+
+> DeepSeek Harness 尚处于开发者预览阶段，插件所使用的槽位和客户端接口可能随上游版本变化。
+
+这是 DeepSeek Harness 社区插件，不是 `@deepseek-ai` 官方插件。
+
 ## 安装
+
+### pnpm 前置准备
+
+Harness 使用 pnpm 管理 profile 插件，安装前先检查：
+
+```sh
+pnpm --version
+command -v pnpm
+```
+
+如果提示 `pnpm: command not found` 或没有输出，可通过 Corepack 安装：
+
+```sh
+corepack enable
+corepack prepare pnpm@10 --activate
+pnpm --version
+```
+
+如果当前 Node.js 环境没有 Corepack，可改用 npm：
+
+```sh
+npm install --global pnpm@10
+pnpm --version
+```
 
 ### GitHub（推荐）
 
@@ -153,7 +159,7 @@ npx @deepseek-ai/dsh web
 
 源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
 
-也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.3.tgz`，再按下方 tarball 方式安装。
+也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.4.tgz`，再按下方 tarball 方式安装。
 
 ### 本地目录
 
@@ -174,7 +180,7 @@ npm pack
 安装：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.3.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.4.tgz
 npx @deepseek-ai/dsh web
 ```
 

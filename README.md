@@ -28,42 +28,13 @@ npx @deepseek-ai/dsh web
 
 ## Screenshots
 
+**Stats bar** — balance, current session cost, and total spend below the composer:
+
 ![Balance, current session, and total spend bar](images/dsh-balance-stats-overview.png)
 
+**Details card** — click the bar to open it: balance composition, billing history, per-model spend, token usage, and the invoice import field:
+
 ![Balance and usage details card](images/dsh-balance-stats-details.png)
-
-> DeepSeek Harness is still in developer preview. The client APIs and mounting slot used by this plugin may change in upstream releases.
-
-## Compatibility
-
-- Tested with DeepSeek Harness: `0.1.0-rc.6`
-- Node.js: `>=22.19.0`
-- pnpm: must be available on `PATH` because Harness uses it to manage profile plugins
-- Tested environment: OrbStack Ubuntu with Node.js `24.19.0`
-
-This is a community plugin for DeepSeek Harness. It is not an official `@deepseek-ai` plugin.
-
-Check pnpm before installing:
-
-```sh
-pnpm --version
-command -v pnpm
-```
-
-If pnpm is missing, install it with Corepack:
-
-```sh
-corepack enable
-corepack prepare pnpm@10 --activate
-pnpm --version
-```
-
-If Corepack is unavailable in your Node.js installation, use npm:
-
-```sh
-npm install --global pnpm@10
-pnpm --version
-```
 
 ## Features
 
@@ -71,7 +42,7 @@ pnpm --version
 - **This session**: estimates the active conversation cost in real time through the composer-scoped `balanceStatsSessionCost` projection.
 - **Total spent**: uses an accounting-based percentage after an invoice import; otherwise falls back to the Harness local estimate.
 - **Details card**: shows spend today, over the last 7/30 days, per-model spend, token usage, and update time.
-- **JSON invoice import**: accepts a pasted `get_all_invoice` JSON response to calculate historical top-ups and accounting-based total spend.
+- **JSON invoice import**: accepts a pasted `get_all_invoice` JSON response to calculate historical top-ups and accounting-based total spend. Importing force-refreshes the balance, so every figure updates at once.
 - **Caching and resilience**: retains the last successful balance when a request fails and refreshes server/client data on configurable intervals. The refresh button in the stats bar immediately re-fetches the balance from DeepSeek.
 
 ## How figures are calculated
@@ -137,7 +108,42 @@ Total spent = Harness local estimated spend
 
 `get_all_invoice` is a private, authenticated DeepSeek Platform endpoint and its response format may change. Never share cookies, authorization headers, or raw JSON containing order details.
 
+## Requirements
+
+- Tested with DeepSeek Harness: `0.1.0-rc.6`
+- Node.js: `>=22.19.0`
+- pnpm: must be available on `PATH` because Harness uses it to manage profile plugins (missing? see [Installation](#installation))
+- Tested environment: OrbStack Ubuntu with Node.js `24.19.0`
+
+> DeepSeek Harness is still in developer preview. The client APIs and mounting slot used by this plugin may change in upstream releases.
+
+This is a community plugin for DeepSeek Harness. It is not an official `@deepseek-ai` plugin.
+
 ## Installation
+
+### pnpm prerequisite
+
+Harness manages profile plugins with pnpm. Check it before installing:
+
+```sh
+pnpm --version
+command -v pnpm
+```
+
+If pnpm is missing, install it with Corepack:
+
+```sh
+corepack enable
+corepack prepare pnpm@10 --activate
+pnpm --version
+```
+
+If Corepack is unavailable in your Node.js installation, use npm:
+
+```sh
+npm install --global pnpm@10
+pnpm --version
+```
 
 ### GitHub (recommended)
 
@@ -150,7 +156,7 @@ npx @deepseek-ai/dsh web
 
 Repository: <https://github.com/pangzi499/dsh-balance-stats>
 
-You can also download `dsh-balance-stats-0.1.3.tgz` from the GitHub Release and install it as a tarball.
+You can also download `dsh-balance-stats-0.1.4.tgz` from the GitHub Release and install it as a tarball.
 
 ### Local directory
 
@@ -171,7 +177,7 @@ npm pack
 Install:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.3.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.1.4.tgz
 npx @deepseek-ai/dsh web
 ```
 
