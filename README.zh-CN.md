@@ -3,7 +3,7 @@
 [English](README.md) | **简体中文**
 
 `dsh-balance-stats` 是 DeepSeek Harness Web 的余额与用量统计插件。它在对话输入框下方的
-`conversation.composer.dock` 底部栏中显示三个核心读数：
+底部栏中显示三个核心读数：
 
 ```text
 余额 ¥40.22 ｜ 本次会话 ¥0.15 ｜ 累计消耗 42.5%
@@ -47,7 +47,8 @@ npx @deepseek-ai/dsh web
 - **JSON 账单导入**：直接粘贴 `get_all_invoice` 的 JSON 响应，计算历史充值与账务总消费；导入后自动强制刷新余额，所有读数立即同步。
 - **容错与缓存**：余额请求失败时保留上次成功数据；服务端和客户端均按配置周期刷新。点击统计栏的刷新按钮可立即向 DeepSeek 重新拉取余额。
 
-## 数据口径
+<details>
+<summary><b>数据口径</b></summary>
 
 ### 余额
 
@@ -100,7 +101,10 @@ DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
              × 100%
 ```
 
-## 隐私与存储
+</details>
+
+<details>
+<summary><b>隐私与存储</b></summary>
 
 - 插件不会请求 `get_all_invoice`，也不会保存 DeepSeek Platform Cookie。
 - 粘贴的原始 JSON 只在当前页面内存中解析，导入成功后立即清空。
@@ -110,6 +114,8 @@ DeepSeek 公开余额 API 不返回历史总充值。如需账务口径：
 
 `get_all_invoice` 属于 DeepSeek Platform 的登录态私有接口，响应结构可能变化。请不要向他人分享 Cookie、
 Authorization header 或包含订单明细的原始 JSON。
+
+</details>
 
 ## 运行要求
 
@@ -124,7 +130,21 @@ Authorization header 或包含订单明细的原始 JSON。
 
 ## 安装
 
-### pnpm 前置准备
+### GitHub（推荐）
+
+安装 GitHub 默认分支的最新版本：
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git
+npx @deepseek-ai/dsh web
+```
+
+源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
+
+也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.4.tgz`，再按下方 tarball 方式安装。
+
+<details>
+<summary><b>pnpm 前置准备</b></summary>
 
 Harness 使用 pnpm 管理 profile 插件，安装前先检查：
 
@@ -148,18 +168,10 @@ npm install --global pnpm@10
 pnpm --version
 ```
 
-### GitHub（推荐）
+</details>
 
-安装 GitHub 默认分支的最新版本：
-
-```sh
-npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git
-npx @deepseek-ai/dsh web
-```
-
-源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
-
-也可以从 GitHub Release 下载 `dsh-balance-stats-0.1.4.tgz`，再按下方 tarball 方式安装。
+<details>
+<summary><b>本地目录 / tarball</b></summary>
 
 ### 本地目录
 
@@ -186,13 +198,16 @@ npx @deepseek-ai/dsh web
 
 安装后对浏览器执行一次强制刷新（macOS：`Command + Shift + R`；Windows/Linux：`Ctrl + Shift + R`）。
 
+</details>
+
 ## 更新
 
 GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句话安装)」。
 
 本地目录或 tarball 安装：使用新版本路径再执行一次 `add`，然后重启 `dsh web`。
 
-## 配置
+<details>
+<summary><b>配置</b></summary>
 
 在 `$DSH_HOME/profiles/web/cordis.patch.yml` 中覆盖插件配置。配置层为整体替换，所以请重述需要保留的键：
 
@@ -222,7 +237,10 @@ GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句
 
 优先使用 `apiKeyRef` 引用 Harness credentials。不要在要分享的 `cordis.patch.yml` 中写入真实 API Key。
 
-## 验证
+</details>
+
+<details>
+<summary><b>验证</b></summary>
 
 启动 Web profile 后：
 
@@ -251,6 +269,8 @@ curl http://127.0.0.1:3080/plugins/dsh-balance-stats/client.js
   }
 }
 ```
+
+</details>
 
 ## 已知限制
 

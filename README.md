@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-`dsh-balance-stats` is a balance and usage statistics plugin for DeepSeek Harness Web. It displays three key figures in the `conversation.composer.dock` bar below the conversation composer:
+`dsh-balance-stats` is a balance and usage statistics plugin for DeepSeek Harness Web. It displays three key figures in a bar below the conversation composer:
 
 ```text
 Balance ¥40.22 | This session ¥0.15 | Total spent 42.5%
@@ -45,7 +45,8 @@ npx @deepseek-ai/dsh web
 - **JSON invoice import**: accepts a pasted `get_all_invoice` JSON response to calculate historical top-ups and accounting-based total spend. Importing force-refreshes the balance, so every figure updates at once.
 - **Caching and resilience**: retains the last successful balance when a request fails and refreshes server/client data on configurable intervals. The refresh button in the stats bar immediately re-fetches the balance from DeepSeek.
 
-## How figures are calculated
+<details>
+<summary><b>How figures are calculated</b></summary>
 
 ### Balance
 
@@ -98,7 +99,10 @@ Total spent = Harness local estimated spend
               × 100%
 ```
 
-## Privacy and storage
+</details>
+
+<details>
+<summary><b>Privacy and storage</b></summary>
 
 - The plugin never requests `get_all_invoice` or stores DeepSeek Platform cookies.
 - Pasted JSON is parsed only in the current page's memory and cleared immediately after a successful import.
@@ -107,6 +111,8 @@ Total spent = Harness local estimated spend
 - Clearing site data requires you to import the invoice summary again.
 
 `get_all_invoice` is a private, authenticated DeepSeek Platform endpoint and its response format may change. Never share cookies, authorization headers, or raw JSON containing order details.
+
+</details>
 
 ## Requirements
 
@@ -121,7 +127,21 @@ This is a community plugin for DeepSeek Harness. It is not an official `@deepsee
 
 ## Installation
 
-### pnpm prerequisite
+### GitHub (recommended)
+
+Install the latest version from the default branch:
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git
+npx @deepseek-ai/dsh web
+```
+
+Repository: <https://github.com/pangzi499/dsh-balance-stats>
+
+You can also download `dsh-balance-stats-0.1.4.tgz` from the GitHub Release and install it as a tarball.
+
+<details>
+<summary><b>pnpm prerequisite</b></summary>
 
 Harness manages profile plugins with pnpm. Check it before installing:
 
@@ -145,18 +165,10 @@ npm install --global pnpm@10
 pnpm --version
 ```
 
-### GitHub (recommended)
+</details>
 
-Install the latest version from the default branch:
-
-```sh
-npx @deepseek-ai/dsh plugin --profile web add https://github.com/pangzi499/dsh-balance-stats.git
-npx @deepseek-ai/dsh web
-```
-
-Repository: <https://github.com/pangzi499/dsh-balance-stats>
-
-You can also download `dsh-balance-stats-0.1.4.tgz` from the GitHub Release and install it as a tarball.
+<details>
+<summary><b>Local directory / Tarball</b></summary>
 
 ### Local directory
 
@@ -183,13 +195,16 @@ npx @deepseek-ai/dsh web
 
 Then hard-refresh the browser (macOS: `Command + Shift + R`; Windows/Linux: `Ctrl + Shift + R`).
 
+</details>
+
 ## Updating
 
 For GitHub one-line installs, the update command is in [Quick install](#quick-install) above.
 
 For local-directory or tarball installations, run `add` again with the new path, then restart `dsh web`.
 
-## Configuration
+<details>
+<summary><b>Configuration</b></summary>
 
 Override plugin configuration in `$DSH_HOME/profiles/web/cordis.patch.yml`. Configuration is replaced as a whole, so repeat every key you want to retain:
 
@@ -219,7 +234,10 @@ Override plugin configuration in `$DSH_HOME/profiles/web/cordis.patch.yml`. Conf
 
 Prefer `apiKeyRef` so the plugin reuses Harness credentials. Never put a real API key in a `cordis.patch.yml` file that you plan to share.
 
-## Verification
+</details>
+
+<details>
+<summary><b>Verification</b></summary>
 
 After starting the Web profile:
 
@@ -248,6 +266,8 @@ Example statistics response (amounts are illustrative):
   }
 }
 ```
+
+</details>
 
 ## Known limitations
 
