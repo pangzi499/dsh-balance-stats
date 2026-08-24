@@ -281,3 +281,43 @@ test('POST rejects malformed and oversized bodies without crashing', async () =>
   })
   assert.equal(bigRes.status, 413)
 })
+
+test('GET ?s=<sessionId> folds and returns that session cost', async () => {
+  let route = null
+  const webCtx = { effect(fn) { return fn() }, webServer: { register(value) { route = value; return () => {} } } }
+  const events = [
+    { type: 'request/context', time: 1, data: { model: 'deepseek-chat' } },
+    { type: 'assistant/message', time: 2, data: { turn: 1, step: 1, usage: { inputTokens: 1_000_000, outputTokens: 1_000_000 } } },
+  ]
+  const sessionQuery = {
+    async listSessions() { return [{ id: 'session-1' }] },
+    async readSession(id) { assert.equal(id, 'session-1'); return { events } },
+  }
+  apply({
+    effect() {},
+    get(key) { return key === 'sessionQuery' ? sessionQuery : undefined },
+    inject(deps, callback) { if (deps.includes('webServer')) callback(webCtx) },
+    logger: { warn() {} },
+  }, { apiKey: 'test-key' })
+
+  const res = mockRes()
+  await route.handler({ method: 'GET', url: '/balance-stats?s=session-1' }, res)
+  const payload = JSON.parse(res.body)
+  assert.ok(payload.currentSession !== null, 'currentSession should be present')
+  // deepseek-chat: 1M input + 1M output at defaultPrices 1/2 → 1 + 2 = 3
+  assert.equal(payload.currentSession.cost, 3)
+})
+
+test('GET without ?s omits currentSession', async () => {
+  let route = null
+  const webCtx = { effect(fn) { return fn() }, webServer: { register(value) { route = value; return () => {} } } }
+  apply({
+    effect() {},
+    get() { return undefined },
+    inject(deps, callback) { if (deps.includes('webServer')) callback(webCtx) },
+    logger: { warn() {} },
+  }, { apiKey: 'test-key' })
+  const res = mockRes()
+  await route.handler({ method: 'GET', url: '/balance-stats' }, res)
+  assert.equal('currentSession' in JSON.parse(res.body), false)
+})

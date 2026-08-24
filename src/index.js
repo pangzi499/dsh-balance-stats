@@ -965,13 +965,31 @@ export function apply(ctx, rawConfig) {
         }
         // 手动刷新: GET ?force=1 时同时刷新余额与总花费，避免返回
         // “新余额 + 旧成本”的混合快照。
+        let currentSession = null
         if (req.method === 'GET') {
           const url = new URL(req.url ?? '/', 'http://localhost')
           if (url.searchParams.get('force') === '1') {
             await Promise.all([refresh(), computeTotalCostDebounced()])
           }
+          // ?s=<sessionId>: 按需折叠某个会话, 供客户端绕过可能失效的
+          // useProjection 交付, 直接显示“当前会话”成本。
+          const sessionId = url.searchParams.get('s')
+          if (sessionId !== null && sessionId !== '') {
+            const sessionQuery = ctx.get('sessionQuery')
+            if (sessionQuery !== undefined) {
+              const folder = makeSessionFolder(config)
+              try {
+                const view = await foldOneSession(folder, sessionQuery, sessionId)
+                currentSession = { cost: view.cost, costByDay: view.costByDay }
+              } catch {
+                currentSession = { cost: null, costByDay: {} }
+              }
+            }
+          }
         }
-        const body = JSON.stringify(serialize())
+        const out = serialize()
+        if (currentSession !== null) out.currentSession = currentSession
+        const body = JSON.stringify(out)
         res.writeHead(200, {
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': 'no-store',

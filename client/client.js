@@ -180,6 +180,8 @@ window.__ModuleLoader__.load({
 		let inflight = null;
 		let inflightForce = false;
 		let started = false;
+		// 当前打开会话的 id; 由组件经 useSession/zone 写入。用于携带给服务端按需折叠。
+		let currentSessionId = null;
 
 		function notify() {
 			for (const fn of [...listeners]) fn();
@@ -194,7 +196,11 @@ window.__ModuleLoader__.load({
 			inflightForce = force === true;
 			inflight = (async () => {
 				try {
-					const res = await fetch("/balance-stats" + (inflightForce ? "?force=1" : ""), {
+					let target = "/balance-stats" + (inflightForce ? "?force=1" : "");
+					if (typeof currentSessionId === "string" && currentSessionId !== "") {
+						target += (target.includes("?") ? "&" : "?") + "s=" + encodeURIComponent(currentSessionId);
+					}
+					const res = await fetch(target, {
 						cache: "no-store",
 						headers: { accept: "application/json" }
 					});
@@ -251,7 +257,12 @@ window.__ModuleLoader__.load({
 			getSnapshot() {
 				return snapshot;
 			},
-			refresh
+			refresh,
+			setSessionId(id) {
+				const changed = currentSessionId !== id;
+				currentSessionId = id;
+				if (changed && started) refresh(true).then(schedule, schedule);
+			}
 		};
 
 		/** 导入端点: 保存 token / 清除 / 手动 JSON。返回服务端 JSON 响应。 */
@@ -438,7 +449,11 @@ window.__ModuleLoader__.load({
 			return minutes >= 1 ? t("unit.minutes", { n: minutes }) : t("unit.seconds", { n: Math.round(ms / 1000) });
 		}
 
-		const BalanceStatsWidget = react.memo(function BalanceStatsWidget({ useProjection, t }) {
+		const BalanceStatsWidget = react.memo(function BalanceStatsWidget({ useProjection, useSession, zone, t }) {
+			// 当前会话 id: 优先 useSession 选择器, 其次 zone.session; 交给 statsStore
+			// 让轮询带上 ?s=, 由服务端按需折叠该会话, 绕过 useProjection 交付失效问题。
+			const sessionId = (useSession ? useSession((s) => s?.sessionId ?? s?.id) : void 0)
+				?? zone?.session?.sessionId ?? zone?.session?.id;
 			const stats = react.useSyncExternalStore(statsStore.subscribe, statsStore.getSnapshot, statsStore.getSnapshot);
 			const sessionCostValue = useProjection ? useProjection("balanceStatsSessionCost") : undefined;
 			const [open, setOpen] = react.useState(false);
@@ -481,7 +496,11 @@ window.__ModuleLoader__.load({
 			const today = Number.isFinite(statsBlock.today) ? statsBlock.today : null;
 			const day7 = Number.isFinite(statsBlock.day7) ? statsBlock.day7 : null;
 			const day30 = Number.isFinite(statsBlock.day30) ? statsBlock.day30 : null;
-			const sessionC = sessionCostValue !== null && sessionCostValue !== undefined && Number.isFinite(sessionCostValue.cost) ? sessionCostValue.cost : null;
+			// 当前会话成本: 优先服务端按需折叠值(经 ?s=), 其次 useProjection, 否则 —
+			const serverSessionC = info !== null && info.currentSession !== null && typeof info.currentSession === "object" && Number.isFinite(info.currentSession.cost) ? info.currentSession.cost : null;
+			const sessionC = serverSessionC !== null
+				? serverSessionC
+				: sessionCostValue !== null && sessionCostValue !== undefined && Number.isFinite(sessionCostValue.cost) ? sessionCostValue.cost : null;
 			// 服务端自动获取的汇总优先; localStorage 手动导入作为离线兜底
 			const serverSummary = invoiceInfo !== null && invoiceInfo.summary !== null && typeof invoiceInfo.summary === "object" ? invoiceInfo.summary : null;
 			const effectiveSummary = serverSummary ?? invoiceSummary;
@@ -622,6 +641,11 @@ window.__ModuleLoader__.load({
 			react.useEffect(() => {
 				if (open && invMode === "edit") tokenInputRef.current?.focus?.();
 			}, [open, invMode]);
+
+			// 把当前会话 id 交给 statsStore, 让轮询带上 ?s=; 会话切换时立即刷新
+			react.useEffect(() => {
+				if (typeof sessionId === "string" && sessionId !== "") statsStore.setSessionId(sessionId);
+			}, [sessionId]);
 
 			const valueLine = (label, value, cls) => (0, react_jsx_runtime.jsxs)("span", {
 				className: "dshbs_main",
