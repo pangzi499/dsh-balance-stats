@@ -162,7 +162,7 @@ npx @deepseek-ai/dsh web
 
 源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
 
-也可以从 GitHub Release 下载 `dsh-balance-stats-0.2.0.tgz`，再按下方 tarball 方式安装。
+也可以从 GitHub Release 下载 `dsh-balance-stats-0.2.1.tgz`，再按下方 tarball 方式安装。
 
 <details>
 <summary><b>pnpm 前置准备</b></summary>
@@ -213,7 +213,7 @@ npm pack
 安装：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.2.0.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.2.1.tgz
 npx @deepseek-ai/dsh web
 ```
 
