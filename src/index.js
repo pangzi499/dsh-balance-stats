@@ -205,37 +205,46 @@ export const parseInvoiceExport = (payload) => {
   }
 }
 
-/** 本地日期键 YYYY-MM-DD(服务器本地时区)。 */
+/** 北京日期键；无历史时间的记录不混入今天。 */
 const dayKeyOf = (ms) => {
-  const d = new Date(ms)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  if (ms === null) return 'unknown'
+  return new Date(ms + 8 * 3600000).toISOString().slice(0, 10)
 }
+
+const validTime = (value) => typeof value === 'number' && Number.isFinite(value)
+  && Math.abs(value) <= 8640000000000000 - 8 * 3600000
 
 const round6 = (n) => Math.round(n * 1e6) / 1e6
 
-/** 将独立舍入产生的微小尾差归入绝对值最大的现有分组。 */
+/** 独立舍入尾差从最大分组开始分摊，避免产生负费用。 */
 const reconcileRoundedBreakdown = (breakdown, total, positiveOnly = false) => {
   const rounded = {}
   for (const [key, value] of Object.entries(breakdown)) {
     const amount = round6(value)
-    if (!positiveOnly || amount > 0) rounded[key] = amount
+    if (!positiveOnly || value > 0) Object.defineProperty(rounded, key, { value: amount, enumerable: true, writable: true, configurable: true })
   }
   const keys = Object.keys(rounded)
   if (keys.length === 0) return rounded
   const sum = round6(Object.values(rounded).reduce((acc, amount) => acc + amount, 0))
-  const residual = round6(round6(total) - sum)
+  let residual = round6(round6(total) - sum)
   if (residual !== 0) {
-    const target = keys.reduce((best, key) => Math.abs(rounded[key]) > Math.abs(rounded[best]) ? key : best)
-    rounded[target] = round6(rounded[target] + residual)
+    // Many tiny groups can round up by more than any single group's cost.
+    for (const target of keys.sort((a, b) => rounded[b] - rounded[a])) {
+      const adjustment = Math.max(residual, -rounded[target])
+      rounded[target] = round6(rounded[target] + adjustment)
+      residual = round6(residual - adjustment)
+      if (residual === 0) break
+    }
   }
+  if (positiveOnly) for (const key of keys) if (rounded[key] === 0) delete rounded[key]
   return rounded
 }
 
 /**
  * 会话花费折叠(与 dsh-token-meter 的 tokenUsage 同语义:
  * 同 (turn,step) 的 usage 样本替换而非重复计数; 模型取自
- * request/header / request/context, last-wins)。
+ * request/header / request/context, last-wins)。Harness 保证同一次尝试的
+ * usage 相邻；llm/retry-started 开始新尝试，关闭旧替换槽。
  *
  * 每收到一条新的用量样本, 用样本发生时间(event.time)计价(含 v4 峰谷),
  * 按替换语义做增量: costDelta = 新样本价 − 被替换旧样本价。
@@ -243,11 +252,15 @@ const reconcileRoundedBreakdown = (breakdown, total, positiveOnly = false) => {
  */
 const makeSessionFolder = (config) => {
   const zero = () => ({ uncachedInputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 })
+  const tokenCount = (value) => {
+    const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value
+    return Number.isSafeInteger(n) && n >= 0 ? n : 0
+  }
   const bucketsOf = (usage) => ({
-    uncachedInputTokens: usage.inputTokens,
-    cacheReadTokens: usage.cacheReadTokens ?? 0,
-    cacheWriteTokens: usage.cacheWriteTokens ?? 0,
-    outputTokens: usage.outputTokens,
+    uncachedInputTokens: tokenCount(usage.inputTokens),
+    cacheReadTokens: tokenCount(usage.cacheReadTokens),
+    cacheWriteTokens: tokenCount(usage.cacheWriteTokens),
+    outputTokens: tokenCount(usage.outputTokens),
   })
   const bucketsEqual = (a, b) =>
     a.uncachedInputTokens === b.uncachedInputTokens && a.cacheReadTokens === b.cacheReadTokens &&
@@ -267,8 +280,8 @@ const makeSessionFolder = (config) => {
   const priceOf = (model, timestamp) => {
     const isV4Flash = model === 'deepseek-v4-flash'
     const isV4Pro = model === 'deepseek-v4-pro'
-    if (!isV4Flash && !isV4Pro) return config.prices[model] ?? config.defaultPrices
-    const t = typeof timestamp === 'number' && timestamp > 0 ? timestamp : Date.now()
+    if (!isV4Flash && !isV4Pro) return Object.hasOwn(config.prices, model) ? config.prices[model] : config.defaultPrices
+    const t = timestamp ?? 0 // Unknown historical time uses the configured legacy rate.
     // 2026-08-17T00:00:00+08:00 起 v4 峰谷计价
     const isAfterCutoff = t >= 1786896000000
     if (!isAfterCutoff) return config.prices[model] ?? DEFAULT_CONFIG.prices[model] ?? config.defaultPrices
@@ -287,9 +300,16 @@ const makeSessionFolder = (config) => {
       buckets.outputTokens * p.output) / 1e6
   }
   return {
-    init: () => ({ currentModel: null, last: null, byModel: {}, modelOrder: [], costByDay: {}, costByModel: {}, totalCost: 0 }),
+    init: () => ({ currentModel: null, lastTime: null, last: null, byModel: {}, modelOrder: [], costByDay: {}, costByModel: {}, totalCost: 0 }),
     /** 喂入一条会话事件; 返回新的状态。 */
     apply(state, event) {
+      if (!event || typeof event !== 'object') return state
+      const timestamp = validTime(event.time) ? event.time : state.lastTime
+      if (timestamp !== state.lastTime) state = { ...state, lastTime: timestamp }
+      if (event.type === 'llm/retry-started') {
+        return state.last !== null && state.last.turn === event.data?.turn && state.last.step === event.data?.step
+          ? { ...state, last: null } : state
+      }
       let nextModel = state.currentModel
       if (event.type === 'request/header') {
         const model = event.data?.header?.config?.model
@@ -301,47 +321,50 @@ const makeSessionFolder = (config) => {
       let usage = null
       let turn = 0
       let step = 0
-      let timestamp = typeof event.time === 'number' ? event.time : Date.now()
       if (event.type === 'assistant/chunk' && event.data?.chunk?.type === 'usage') {
         ;({ turn, step } = event.data)
         usage = event.data.chunk.usage
       } else if (event.type === 'assistant/message' && event.data?.usage !== undefined) {
         ;({ turn, step, usage } = event.data)
       }
-      if (usage === null) {
+      if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
         return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
       }
-      const model = nextModel ?? 'unknown'
+      const sourceModel = event.data?.message?.source?.model
+      const model = typeof sourceModel === 'string' && sourceModel !== '' ? sourceModel : nextModel ?? 'unknown'
       const buckets = bucketsOf(usage)
       const previous = state.last !== null && state.last.turn === turn && state.last.step === step ? state.last : null
-      if (previous !== null && previous.model === model && bucketsEqual(previous.buckets, buckets)) {
+      if (previous !== null && previous.model === model && previous.time === timestamp && bucketsEqual(previous.buckets, buckets)) {
         return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
       }
       // 替换语义的增量计价: 新样本价 − 旧样本价
       const currentCost = costOf(buckets, model, timestamp)
-      const previousCost = previous !== null ? costOf(previous.buckets, previous.model, previous.time) : 0
+      const previousCost = previous?.cost ?? 0
       const delta = currentCost - previousCost
       const dayKey = dayKeyOf(timestamp)
-      const isNewModel = !(model in state.byModel)
+      const isNewModel = !Object.hasOwn(state.byModel, model)
       let byModel = state.byModel
       if (previous !== null) {
-        byModel = { ...byModel, [previous.model]: subBuckets(byModel[previous.model] ?? zero(), previous.buckets) }
+        byModel = { ...byModel, [previous.model]: subBuckets(byModel[previous.model], previous.buckets) }
       }
-      byModel = { ...byModel, [model]: addBuckets(byModel[model] ?? zero(), buckets) }
+      byModel = { ...byModel, [model]: addBuckets(Object.hasOwn(byModel, model) ? byModel[model] : zero(), buckets) }
       let costByModel = { ...(state.costByModel ?? {}) }
       if (previous !== null) {
-        costByModel[previous.model] = round6((costByModel[previous.model] ?? 0) - previousCost)
+        costByModel[previous.model] -= previousCost
       }
-      costByModel[model] = round6((costByModel[model] ?? 0) + currentCost)
+      costByModel = { ...costByModel, [model]: (Object.hasOwn(costByModel, model) ? costByModel[model] : 0) + currentCost }
+      const costByDay = { ...state.costByDay }
+      if (previous !== null) costByDay[previous.dayKey] -= previousCost
+      costByDay[dayKey] = (costByDay[dayKey] ?? 0) + currentCost
       return {
         ...state,
         currentModel: nextModel,
-        last: { turn, step, model, buckets, time: timestamp },
+        last: { turn, step, model, buckets, time: timestamp, cost: currentCost, dayKey },
         byModel,
         modelOrder: isNewModel ? [...state.modelOrder, model] : state.modelOrder,
-        costByDay: { ...state.costByDay, [dayKey]: round6((state.costByDay[dayKey] ?? 0) + delta) },
+        costByDay,
         costByModel,
-        totalCost: round6(state.totalCost + delta),
+        totalCost: state.totalCost + delta,
       }
     },
     view: (state) => {
@@ -365,8 +388,7 @@ const makeSessionFolder = (config) => {
 }
 
 /** 最近 n 天(含今天)花费合计。 */
-const sumLastDays = (costByDay, n) => {
-  const now = Date.now()
+const sumLastDays = (costByDay, n, now = Date.now()) => {
   let sum = 0
   for (let i = 0; i < n; i++) {
     const key = dayKeyOf(now - i * 86400000)
@@ -476,7 +498,7 @@ export function apply(ctx, rawConfig) {
     const folder = makeSessionFolder(config)
     let totalCost = 0
     const totalCostByDay = {}
-    const totalCostByModel = {}
+    const totalCostByModel = Object.create(null)
     const totalTokens = { uncachedInput: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
     let sessions = 0
     try {
@@ -714,7 +736,7 @@ export function apply(ctx, rawConfig) {
           currency: config.currency,
         }
       },
-      stateVersion: 2,
+      stateVersion: 3,
     })
   })
 
@@ -745,13 +767,14 @@ export function apply(ctx, rawConfig) {
       const balance = typeof primary?.total === 'number' ? primary.total : 0
       const totalCost = costCache.state === 'ok' ? costCache.cost : 0
       const costByDay = costCache.state === 'ok' ? costCache.costByDay : {}
+      const now = Date.now()
       out.stats = {
         state: costCache.state,
         totalCost,
         percent: estimatedUsedPercent(totalCost, balance),
-        today: sumLastDays(costByDay, 1),
-        day7: sumLastDays(costByDay, 7),
-        day30: sumLastDays(costByDay, 30),
+        today: sumLastDays(costByDay, 1, now),
+        day7: sumLastDays(costByDay, 7, now),
+        day30: sumLastDays(costByDay, 30, now),
         costByDay,
         costByModel: costCache.state === 'ok' ? costCache.costByModel : {},
         tokens: costCache.state === 'ok' ? costCache.tokens : null,
