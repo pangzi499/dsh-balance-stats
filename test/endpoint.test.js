@@ -119,3 +119,32 @@ test('all-session totals reconcile with session views and Beijing windows', asyn
     assert.equal(stats.tokens[key], views.reduce((sum, v) => sum + v.tokens[key], 0))
   }
 })
+
+test('session-only read skips balance network and all-session enumeration', async (t) => {
+  t.mock.method(globalThis, 'fetch', () => { throw new Error('balance refresh must not run') })
+  let route
+  const reads = []
+  apply({
+    effect() {}, logger: { warn() {} },
+    get(key) { return key === 'sessionQuery' ? {
+      async listSessions() { assert.fail('switch must not scan all sessions') },
+      async readSession(id) {
+        reads.push(id)
+        return { events: [
+          { type: 'request/context', time: 1, data: { model: 'deepseek-chat' } },
+          { type: 'assistant/message', time: 2,
+            data: { turn: 1, step: 1, usage: { inputTokens: 1_000_000 } } },
+        ] }
+      },
+    } : undefined },
+    inject(deps, callback) {
+      if (deps.includes('webServer')) callback({ effect(fn) { fn() }, webServer: { register(value) { route = value } } })
+    },
+  }, { apiKey: 'test-key' })
+  let payload
+  await route.handler({ method: 'GET', url: '/balance-stats?s=workspace-B-session' }, {
+    writeHead() {}, end(body) { payload = JSON.parse(body) },
+  })
+  assert.deepEqual(reads, ['workspace-B-session'])
+  assert.equal(payload.currentSession.cost, 1)
+})

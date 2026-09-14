@@ -171,99 +171,125 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 
-		//#region stats store (单例轮询器: 拉 /balance-stats)
+		//#region stats store (每个组件独立维护会话请求和轮询)
 		const DEFAULT_POLL_MS = 30000;
-		let snapshot = { status: "loading" };
-		const listeners = new Set();
-		let timer = null;
-		let pollMs = DEFAULT_POLL_MS;
-		let inflight = null;
-		let inflightForce = false;
-		let started = false;
-		// 当前打开会话的 id; 由组件经 useSession/zone 写入。用于携带给服务端按需折叠。
-		let currentSessionId = null;
+		function createStatsStore() {
+			let snapshot = { status: "loading" };
+			const listeners = new Set();
+			let timer = null;
+			let pollMs = DEFAULT_POLL_MS;
+			let inflight = null;
+			let inflightForce = false;
+			let started = false;
+			// 当前组件的会话 id，随请求保存，防止迟到响应串会话。
+			let currentSessionId = null;
+			let generation = 0;
+			let controller = null;
 
-		function notify() {
-			for (const fn of [...listeners]) fn();
-		}
+			function notify() {
+				for (const fn of [...listeners]) fn();
+			}
 
-		async function refresh(force) {
-			if (inflight !== null) {
-				// 轮询请求在途时, 手动刷新(force)等它结束后再强制拉取, 避免点击被吞掉。
-				if (force === true && !inflightForce) return inflight.then(() => refresh(true));
+			async function refresh(force) {
+				if (inflight !== null) {
+					// 轮询请求在途时, 手动刷新(force)等它结束后再强制拉取, 避免点击被吞掉。
+					if (force === true && !inflightForce) return inflight.then(() => refresh(true));
+					return inflight;
+				}
+				inflightForce = force === true;
+				const requestGeneration = generation;
+				const requestSessionId = currentSessionId;
+				controller = new AbortController();
+				const signal = controller.signal;
+				inflight = (async () => {
+					try {
+						let target = "/balance-stats" + (inflightForce ? "?force=1" : "");
+						if (typeof currentSessionId === "string" && currentSessionId !== "") {
+							target += (target.includes("?") ? "&" : "?") + "s=" + encodeURIComponent(currentSessionId);
+						}
+						const res = await fetch(target, {
+							cache: "no-store",
+							signal,
+							headers: { accept: "application/json" }
+						});
+						if (!res.ok) throw new Error("HTTP " + res.status);
+						const data = await res.json();
+						if (requestGeneration !== generation) return;
+						if (typeof data.clientPollIntervalMs === "number" && data.clientPollIntervalMs >= 5000) {
+							pollMs = Math.min(data.clientPollIntervalMs, 3600000);
+						}
+						snapshot = { status: "ok", payload: data, sessionId: requestSessionId, at: Date.now() };
+					} catch (error) {
+						if (requestGeneration !== generation) return;
+						snapshot = {
+							status: "error",
+							message: error instanceof Error ? error.message : String(error),
+							at: Date.now()
+						};
+					}
+					inflight = null;
+					inflightForce = false;
+					notify();
+				})();
 				return inflight;
 			}
-			inflightForce = force === true;
-			inflight = (async () => {
-				try {
-					let target = "/balance-stats" + (inflightForce ? "?force=1" : "");
-					if (typeof currentSessionId === "string" && currentSessionId !== "") {
-						target += (target.includes("?") ? "&" : "?") + "s=" + encodeURIComponent(currentSessionId);
-					}
-					const res = await fetch(target, {
-						cache: "no-store",
-						headers: { accept: "application/json" }
-					});
-					if (!res.ok) throw new Error("HTTP " + res.status);
-					const data = await res.json();
-					if (typeof data.clientPollIntervalMs === "number" && data.clientPollIntervalMs >= 5000) {
-						pollMs = Math.min(data.clientPollIntervalMs, 3600000);
-					}
-					snapshot = { status: "ok", payload: data, at: Date.now() };
-				} catch (error) {
-					snapshot = {
-						status: "error",
-						message: error instanceof Error ? error.message : String(error),
-						at: Date.now()
-					};
-				}
-				inflight = null;
-				inflightForce = false;
-				notify();
-			})();
-			return inflight;
-		}
 
-		function schedule() {
-			if (!started || timer !== null) return;
-			timer = setTimeout(() => {
-				timer = null;
-				if (document.hidden) {
-					schedule();
-					return;
-				}
-				refresh().then(schedule, schedule);
-			}, pollMs);
-		}
-
-		const statsStore = {
-			subscribe(fn) {
-				listeners.add(fn);
-				if (!started) {
-					started = true;
+			function schedule() {
+				if (!started || timer !== null) return;
+				timer = setTimeout(() => {
+					timer = null;
+					if (document.hidden) {
+						schedule();
+						return;
+					}
 					refresh().then(schedule, schedule);
-				}
-				return () => {
-					listeners.delete(fn);
-					if (listeners.size === 0) {
-						started = false;
-						if (timer !== null) {
-							clearTimeout(timer);
-							timer = null;
-						}
-					}
-				};
-			},
-			getSnapshot() {
-				return snapshot;
-			},
-			refresh,
-			setSessionId(id) {
-				const changed = currentSessionId !== id;
-				currentSessionId = id;
-				if (changed && started) refresh(true).then(schedule, schedule);
+				}, pollMs);
 			}
-		};
+
+			const statsStore = {
+				subscribe(fn) {
+					listeners.add(fn);
+					if (!started) {
+						started = true;
+						refresh().then(schedule, schedule);
+					}
+					return () => {
+						listeners.delete(fn);
+						if (listeners.size === 0) {
+							started = false;
+							generation++;
+							controller?.abort();
+							inflight = null;
+							inflightForce = false;
+							if (timer !== null) {
+								clearTimeout(timer);
+								timer = null;
+							}
+						}
+					};
+				},
+				getSnapshot() {
+					return snapshot;
+				},
+				refresh,
+				setSessionId(id) {
+					const changed = currentSessionId !== id;
+					currentSessionId = id;
+					if (!changed) return;
+					generation++;
+					controller?.abort();
+					inflight = null;
+					inflightForce = false;
+					snapshot = snapshot.payload
+						? { ...snapshot, sessionId: id, payload: { ...snapshot.payload, currentSession: null } }
+						: { status: "loading", sessionId: id };
+					notify();
+					if (started) refresh().then(schedule, schedule);
+				}
+			};
+
+			return statsStore;
+		}
 
 		/** 导入端点: 保存 token / 清除 / 手动 JSON。返回服务端 JSON 响应。 */
 		async function postImport(payload) {
@@ -449,11 +475,20 @@ window.__ModuleLoader__.load({
 			return minutes >= 1 ? t("unit.minutes", { n: minutes }) : t("unit.seconds", { n: Math.round(ms / 1000) });
 		}
 
-		const BalanceStatsWidget = react.memo(function BalanceStatsWidget({ useProjection, useSession, zone, t }) {
-			// 当前会话 id: 优先 useSession 选择器, 其次 zone.session; 交给 statsStore
-			// 让轮询带上 ?s=, 由服务端按需折叠该会话, 绕过 useProjection 交付失效问题。
-			const sessionId = (useSession ? useSession((s) => s?.sessionId ?? s?.id) : void 0)
+		function selectSessionCost(sessionId, projection, stats) {
+			if (!sessionId) return null;
+			if (Number.isFinite(projection?.cost)) return projection.cost;
+			const current = stats.status === "ok" && stats.sessionId === sessionId
+				? stats.payload?.currentSession : null;
+			return Number.isFinite(current?.cost) ? current.cost : null;
+		}
+
+		const BalanceStatsWidget = react.memo(function BalanceStatsWidget({ useProjection, useSession, sessionId: boundSessionId, zone, t }) {
+			// 优先使用 Harness 注入的 sessionId，兼容旧版 hook/zone。
+			const selectedSessionId = (useSession ? useSession((s) => s?.sessionId ?? s?.id) : void 0)
 				?? zone?.session?.sessionId ?? zone?.session?.id;
+			const sessionId = boundSessionId ?? selectedSessionId ?? null;
+			const [statsStore] = react.useState(createStatsStore);
 			const stats = react.useSyncExternalStore(statsStore.subscribe, statsStore.getSnapshot, statsStore.getSnapshot);
 			const sessionCostValue = useProjection ? useProjection("balanceStatsSessionCost") : undefined;
 			const [open, setOpen] = react.useState(false);
@@ -496,11 +531,8 @@ window.__ModuleLoader__.load({
 			const today = Number.isFinite(statsBlock.today) ? statsBlock.today : null;
 			const day7 = Number.isFinite(statsBlock.day7) ? statsBlock.day7 : null;
 			const day30 = Number.isFinite(statsBlock.day30) ? statsBlock.day30 : null;
-			// 当前会话成本: 优先服务端按需折叠值(经 ?s=), 其次 useProjection, 否则 —
-			const serverSessionC = info !== null && info.currentSession !== null && typeof info.currentSession === "object" && Number.isFinite(info.currentSession.cost) ? info.currentSession.cost : null;
-			const sessionC = serverSessionC !== null
-				? serverSessionC
-				: sessionCostValue !== null && sessionCostValue !== undefined && Number.isFinite(sessionCostValue.cost) ? sessionCostValue.cost : null;
+			// Live projection is scoped by Harness; HTTP is an identity-checked fallback.
+			const sessionC = selectSessionCost(sessionId, sessionCostValue, stats);
 			// 服务端自动获取的汇总优先; localStorage 手动导入作为离线兜底
 			const serverSummary = invoiceInfo !== null && invoiceInfo.summary !== null && typeof invoiceInfo.summary === "object" ? invoiceInfo.summary : null;
 			const effectiveSummary = serverSummary ?? invoiceSummary;
@@ -644,8 +676,8 @@ window.__ModuleLoader__.load({
 
 			// 把当前会话 id 交给 statsStore, 让轮询带上 ?s=; 会话切换时立即刷新
 			react.useEffect(() => {
-				if (typeof sessionId === "string" && sessionId !== "") statsStore.setSessionId(sessionId);
-			}, [sessionId]);
+				statsStore.setSessionId(sessionId);
+			}, [sessionId, statsStore]);
 
 			const valueLine = (label, value, cls) => (0, react_jsx_runtime.jsxs)("span", {
 				className: "dshbs_main",
@@ -997,7 +1029,7 @@ window.__ModuleLoader__.load({
 
 		exports.apply = apply;
 		exports.inject = inject;
-		exports.__testing = { parseInvoiceExport, calculateAccountingUsage };
+		exports.__testing = { parseInvoiceExport, calculateAccountingUsage, createStatsStore, selectSessionCost };
 		return module.exports;
 	}
 });
