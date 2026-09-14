@@ -41,7 +41,7 @@ npx @deepseek-ai/dsh web
 ## 功能
 
 - **余额**：读取 DeepSeek 官方余额接口，显示当前可用余额、充值余额和赠送余额。
-- **本次会话**：通过 composer 作用域的 `balanceStatsSessionCost` projection 实时估算当前会话花费。
+- **本次会话**：显示当前会话花费，优先使用 composer 作用域的 `balanceStatsSessionCost` projection，并在其缺失时回退到服务端对同一会话的按需折叠（`GET /balance-stats?s=<sessionId>`），重启后不会只显示一个 `—`。
 - **累计消耗**：导入账单后优先显示账务口径百分比；未导入时回退到 Harness 本地估算。
 - **详情卡**：显示今天、最近 7/30 天花费、按模型分解、Token 用量和更新时间。
 - **账单自动获取（可选）**：在详情卡里粘贴一次平台 `userToken`，服务端即按周期自动拉取账单并计算账务口径；token 可持久化到本机凭证文件（权限 0600），重启自动恢复，一键可清除。
@@ -75,6 +75,14 @@ GET https://api.deepseek.com/user/balance
 `prices` 用于普通模型，以及 `2026-08-17 00:00 +08:00` 前的 v4 用量。该时间点后，
 v4 在北京时间 `09:00–12:00`、`14:00–18:00` 使用 `v4PeakPrices`，其余时段使用
 `v4OffPeakPrices`。三组价格均可配置。
+
+折叠口径是确定性的，与你何时查看无关：
+
+- 同一 `(turn, step)` 的用量样本替换旧样本而非重复计费；`llm/retry-started` 会关闭对应的替换槽，重试时保留被替换那一次尝试的花费。
+- 计价一律使用样本自身的事件时间，因此跨零点或跨峰谷边界的替换会把整笔花费在对应的日期/价格桶之间搬移。
+- 日期桶与今天/7 天/30 天窗口统一使用 UTC+08:00 日期。缺少可用时间戳的记录按日志顺序继承上一条有效时间；完全没有时按基础价格计入 `unknown` 日，仍计入总额但不进日期窗口。历史计价从不使用「当前查看时刻」。
+- Token 字段只接受非负安全整数（或等效数字字符串），异常值按 0 处理；缓存命中不会从 `inputTokens` 中扣除。
+- 累计过程保留完整精度，仅在输出视图时归整到 6 位小数，因此 `totalCost`、`costByModel`、`costByDay` 与各会话花费之和恒等。
 
 ### 历史账单
 
@@ -140,7 +148,7 @@ userToken、Cookie 或包含订单明细的原始 JSON。
 
 ## 运行要求
 
-- DeepSeek Harness：已在 `0.1.0-rc.6` ～ `0.1.1-rc.1` 上验证
+- DeepSeek Harness：已在 `0.1.0-rc.6` ～ `0.1.5-rc.2` 上验证
 - Node.js：`>=22.19.0`
 - pnpm：需要在 `PATH` 中可用（Harness 使用 pnpm 管理 profile 插件；缺失时见[安装](#安装)）
 - 已验证运行环境：OrbStack Ubuntu、Node.js `24.19.0`
@@ -162,7 +170,7 @@ npx @deepseek-ai/dsh web
 
 源码仓库：<https://github.com/pangzi499/dsh-balance-stats>
 
-也可以从 GitHub Release 下载 `dsh-balance-stats-0.2.1.tgz`，再按下方 tarball 方式安装。
+也可以从 GitHub Release 下载 `dsh-balance-stats-0.3.0.tgz`，再按下方 tarball 方式安装。
 
 <details>
 <summary><b>pnpm 前置准备</b></summary>
@@ -213,7 +221,7 @@ npm pack
 安装：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.2.1.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.3.0.tgz
 npx @deepseek-ai/dsh web
 ```
 
@@ -278,8 +286,12 @@ GitHub 一键安装的插件，更新命令见上方「[一句话安装](#一句
 
 ```sh
 curl http://127.0.0.1:3080/balance-stats
-curl http://127.0.0.1:3080/plugins/dsh-balance-stats/client.js
+curl 'http://127.0.0.1:3080/balance-stats?s=<sessionId>'
 ```
+
+第一个请求返回账户快照；第二个额外返回 `currentSession { cost, costByDay }`，只折叠该会话日志。
+插件客户端 bundle 由带版本号的组合 URL 提供（`/plugins/??dsh-balance-stats/client.js&rev=<hash>`，
+hash 取自 `window.__DSH_BOOT__`），因此裸路径 `/plugins/dsh-balance-stats/client.js` 按设计返回 404。
 
 统计接口示例（金额仅为示例）：
 
@@ -297,7 +309,14 @@ curl http://127.0.0.1:3080/plugins/dsh-balance-stats/client.js
     "today": 2.103612,
     "day7": 2.103612,
     "day30": 2.103612,
+    "costByDay": { "2026-09-15": 2.103612 },
+    "costByModel": { "deepseek-v4-flash": 1.702128 },
+    "tokens": { "uncachedInput": 25361491, "cacheRead": 647550144, "cacheWrite": 0 },
     "sessions": 10
+  },
+  "currentSession": {
+    "cost": 0.258097,
+    "costByDay": { "2026-09-15": 0.258097 }
   }
 }
 ```

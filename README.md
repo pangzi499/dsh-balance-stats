@@ -39,7 +39,7 @@ npx @deepseek-ai/dsh web
 ## Features
 
 - **Balance**: reads the official DeepSeek balance API and shows available, topped-up, and granted balances.
-- **This session**: estimates the active conversation cost in real time through the composer-scoped `balanceStatsSessionCost` projection.
+- **This session**: shows the active conversation cost, preferring the composer-scoped `balanceStatsSessionCost` projection and falling back to a server-side fold of that exact session (`GET /balance-stats?s=<sessionId>`), so a restart cannot leave the bar on a bare dash.
 - **Total spent**: uses an accounting-based percentage after an invoice import; otherwise falls back to the Harness local estimate.
 - **Details card**: shows spend today, over the last 7/30 days, per-model spend, token usage, and update time.
 - **Auto invoice import (optional)**: paste your platform `userToken` once in the details card and the server re-fetches invoices on a schedule; the token persists to the local credentials file (mode 0600), survives restarts, and clears with one click.
@@ -74,6 +74,14 @@ This is a local estimate. It may exclude calls made outside Harness, deleted his
 After that cutoff, v4 usage selects `v4PeakPrices` during `09:00–12:00` and
 `14:00–18:00` Beijing time, and `v4OffPeakPrices` at other times. All three
 price maps are configurable.
+
+The fold is deterministic and independent of when you look at it:
+
+- A usage sample replaces the earlier sample of the same `(turn, step)` instead of double-counting it; `llm/retry-started` closes the matching slot so a retry keeps the cost of the attempt it replaced.
+- Prices are applied at the sample's own event time, so a replacement that crosses midnight or a peak/off-peak boundary moves its full cost between the affected day and rate buckets.
+- Day buckets and the Today/7-day/30-day windows all use `2026-08-17`-style UTC+08:00 dates. A record without a usable timestamp inherits the last valid one in log order; with none available it falls back to base prices under the `unknown` day, stays inside the total, and is excluded from the date windows. The viewing clock is never used for historical pricing.
+- Token fields accept only nonnegative safe integers (or their numeric strings); malformed values become zero, and cache reads are never subtracted from `inputTokens`.
+- Accumulators keep full precision and round to six decimals only when a view is published, so `totalCost`, `costByModel`, `costByDay`, and the sum of per-session costs agree.
 
 ### Historical invoices
 
@@ -136,7 +144,7 @@ Total spent = Harness local estimated spend
 
 ## Requirements
 
-- DeepSeek Harness: tested on `0.1.0-rc.6` through `0.1.1-rc.1`
+- DeepSeek Harness: tested on `0.1.0-rc.6` through `0.1.5-rc.2`
 - Node.js: `>=22.19.0`
 - pnpm: must be available on `PATH` because Harness uses it to manage profile plugins (missing? see [Installation](#installation))
 - Tested environment: OrbStack Ubuntu with Node.js `24.19.0`
@@ -158,7 +166,7 @@ npx @deepseek-ai/dsh web
 
 Repository: <https://github.com/pangzi499/dsh-balance-stats>
 
-You can also download `dsh-balance-stats-0.2.1.tgz` from the GitHub Release and install it as a tarball.
+You can also download `dsh-balance-stats-0.3.0.tgz` from the GitHub Release and install it as a tarball.
 
 <details>
 <summary><b>pnpm prerequisite</b></summary>
@@ -209,7 +217,7 @@ npm pack
 Install:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.2.1.tgz
+npx @deepseek-ai/dsh plugin --profile web add /absolute/path/to/dsh-balance-stats-0.3.0.tgz
 npx @deepseek-ai/dsh web
 ```
 
@@ -274,8 +282,13 @@ After starting the Web profile:
 
 ```sh
 curl http://127.0.0.1:3080/balance-stats
-curl http://127.0.0.1:3080/plugins/dsh-balance-stats/client.js
+curl 'http://127.0.0.1:3080/balance-stats?s=<sessionId>'
 ```
+
+The first call returns the account snapshot; the second adds `currentSession { cost, costByDay }`
+folded from exactly that session log. A client bundle is served under its revisioned combo URL
+(`/plugins/??dsh-balance-stats/client.js&rev=<hash>`, hash taken from `window.__DSH_BOOT__`),
+so the bare `/plugins/dsh-balance-stats/client.js` path answers 404 by design.
 
 Example statistics response (amounts are illustrative):
 
@@ -293,7 +306,14 @@ Example statistics response (amounts are illustrative):
     "today": 2.103612,
     "day7": 2.103612,
     "day30": 2.103612,
+    "costByDay": { "2026-09-15": 2.103612 },
+    "costByModel": { "deepseek-v4-flash": 1.702128 },
+    "tokens": { "uncachedInput": 25361491, "cacheRead": 647550144, "cacheWrite": 0 },
     "sessions": 10
+  },
+  "currentSession": {
+    "cost": 0.258097,
+    "costByDay": { "2026-09-15": 0.258097 }
   }
 }
 ```
